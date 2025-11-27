@@ -6,27 +6,59 @@ A modern React-based web application for discovering and managing local deals an
 
 SaveMate is a local deals platform connecting Polish consumers with businesses offering discounts and promotions. This repository contains the frontend application that provides an intuitive interface for users to browse deals, manage favorites, and interact with local businesses.
 
+**Course:** Agile Project Management  
+**Institution:** WSB University, Dąbrowa Górnicza  
+**Methodology:** Kanban  
+**Professor:** Dawid Jurczyński
 
 ## ✨ Features Implemented
 
-### Phase 6 - Authentication (Current)
+### Phase 6 - Authentication System (Complete)
 
-- ✅ **User Login**
-  - Email or username authentication
-  - Password visibility toggle
-  - "Remember me" functionality
-  - Form validation and error handling
-  - JWT token management
-  
-- ✅ **Protected Routes**
-  - Authentication-based route protection
-  - Automatic redirect to login for unauthorized access
-  - Token persistence across sessions
-  
-- ✅ **User Dashboard**
-  - Personalized welcome message
-  - Quick access to deals, favorites, and reviews
-  - Secure logout functionality
+#### 🔐 User Login
+- Email or username authentication
+- Password visibility toggle with eye icon
+- "Remember me" functionality
+- Client-side form validation
+- Real-time error feedback
+- JWT token management
+- Automatic token refresh
+- Session persistence across page refreshes
+
+#### 📝 User Registration
+- Complete registration form with 7 fields:
+  - Full Name (required)
+  - Email Address (required, validated)
+  - Username (required, alphanumeric + underscore)
+  - Password (required, with strength validation)
+  - Confirm Password (required, must match)
+  - Phone Number (optional, Polish format +48XXXXXXXXX)
+  - Terms & Conditions (required checkbox)
+- **Password Strength Indicator:**
+  - Real-time visual feedback
+  - Color-coded progress bar (Red → Yellow → Green)
+  - Strength levels: Weak, Medium, Strong
+  - Checks for length, uppercase, lowercase, numbers, special characters
+- Password visibility toggle on both password fields
+- Real-time validation feedback on blur
+- Inline error messages with specific validation rules
+- API integration with duplicate detection
+- Success message with auto-redirect to login (2 seconds)
+- Responsive mobile-first design
+
+#### 🛡️ Protected Routes
+- Authentication-based route protection
+- Automatic redirect to login for unauthorized access
+- Public routes redirect authenticated users to home
+- Loading states during authentication checks
+- Token persistence across sessions
+
+#### 🏠 User Dashboard
+- Personalized welcome message with user's name
+- Quick access cards for Deals, Favorites, Reviews
+- User email display
+- Secure logout functionality
+- Conditional rendering based on auth state
 
 ## 🛠️ Tech Stack
 
@@ -35,6 +67,7 @@ SaveMate is a local deals platform connecting Polish consumers with businesses o
 - **Styling:** Tailwind CSS 3.3.6
 - **Routing:** React Router DOM 6.20.1
 - **HTTP Client:** Axios 1.6.2
+- **State Management:** React Context API
 - **Language:** JavaScript (ES6+)
 
 ## 📦 Installation
@@ -58,23 +91,19 @@ SaveMate is a local deals platform connecting Polish consumers with businesses o
    npm install
    ```
 
-3. **Configure environment:**
-   - Backend API URL is set to `http://localhost:8000/api/v1` in `src/services/authService.js`
-   - Update if your backend runs on a different port
-
-4. **Run development server:**
+3. **Run development server:**
    ```bash
    npm run dev
    ```
 
-5. **Open in browser:**
+4. **Open in browser:**
    ```
    http://localhost:5173
    ```
 
 ## 🚀 Available Scripts
 
-- `npm run dev` - Start development server (port 5173)
+- `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 
@@ -85,8 +114,9 @@ savemate-frontend/
 ├── src/
 │   ├── components/
 │   │   ├── auth/
-│   │   │   └── LoginPage.jsx       # Login form component
-│   │   └── HomePage.jsx             # Dashboard/home page
+│   │   │   ├── LoginPage.jsx        # Login form (~200 lines)
+│   │   │   └── SignupPage.jsx       # Registration form (~450 lines)
+│   │   └── HomePage.jsx             # Dashboard (~100 lines)
 │   ├── context/
 │   │   └── AuthContext.jsx          # Global authentication state
 │   ├── services/
@@ -96,156 +126,131 @@ savemate-frontend/
 │   └── main.jsx                     # React entry point
 ├── public/                          # Static assets
 ├── index.html                       # HTML template
-├── package.json                     # Dependencies and scripts
+├── package.json                     # Dependencies
 ├── postcss.config.js                # PostCSS configuration
-├── tailwind.config.js               # Tailwind CSS configuration
+├── tailwind.config.js               # Tailwind configuration
 └── vite.config.js                   # Vite configuration
 ```
 
 ## 🔐 Authentication Flow
 
+### Login Flow
 1. User navigates to `/login`
 2. Enters email/username and password
-3. Frontend sends credentials to backend API
-4. Backend validates and returns JWT tokens
+3. Frontend sends credentials to backend
+4. Backend returns JWT tokens
 5. Tokens stored in localStorage
 6. User redirected to dashboard
-7. Protected routes check token validity
-8. Axios interceptor adds token to all API requests
+7. Axios interceptor adds token to requests
+
+### Registration Flow
+1. User navigates to `/register`
+2. Fills form with real-time validation
+3. Password strength calculated live
+4. Client-side validation prevents invalid data
+5. Backend creates account
+6. Success message shown
+7. Auto-redirect to login after 2 seconds
 
 ## 🎨 Design System
 
-### Color Palette
+### Colors
+- **Primary:** #0ea5e9 (Blue shades 50-900)
+- **Background:** Gradient Blue-50 to Indigo-100
+- **Error:** #ef4444 (Red)
+- **Success:** #10b981 (Green)
+- **Password Strength:** Red/Yellow/Green
 
-- **Primary Blue:** #0ea5e9 (various shades from 50-900)
-- **Background Gradient:** Blue-50 to Indigo-100
-- **Error Red:** #ef4444
-- **Success Green:** #10b981
-
-### Components
-
-- Responsive mobile-first design
-- Consistent spacing and typography
-- Smooth transitions and hover effects
-- Accessible form inputs with ARIA labels
+### Typography
+- System font stack with antialiasing
+- Responsive sizing (3xl → sm)
+- Medium to extrabold weights
 
 ## 🔌 API Integration
 
-### Base URL
-```
-http://localhost:8000/api/v1
-```
-
-### Endpoints Used
+**Base URL:** `http://localhost:8000/api/v1`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/auth/login` | User login |
 | POST | `/auth/register` | User registration |
-| POST | `/auth/refresh` | Refresh access token |
-
-### Request Example
-```javascript
-POST /api/v1/auth/login
-Content-Type: application/json
-
-{
-  "email_or_username": "testuser",
-  "password": "Test1234"
-}
-```
-
-### Response Example
-```javascript
-{
-  "access_token": "eyJhbGc...",
-  "refresh_token": "eyJhbGc...",
-  "token_type": "bearer",
-  "user": {
-    "id": "507f1f77bcf86cd799439011",
-    "email": "test@savemate.com",
-    "username": "testuser",
-    "full_name": "Test User"
-  }
-}
-```
+| POST | `/auth/refresh` | Refresh token |
 
 ## 🧪 Testing
 
-### Manual Testing Checklist
+### Login Tests
+- [x] Valid credentials → Success
+- [x] Invalid credentials → Error
+- [x] Empty form → Validation
+- [x] Password toggle → Works
+- [x] Remember me → Stored
+- [x] Token storage → Verified
+- [x] Mobile responsive → Tested
 
-- [x] Login with valid credentials
-- [x] Login with invalid credentials shows error
-- [x] Empty form shows validation error
-- [x] Password visibility toggle works
-- [x] Remember me checkbox functionality
-- [x] Successful login redirects to dashboard
-- [x] Tokens stored in localStorage
-- [x] Protected routes redirect to login when not authenticated
-- [x] Logout clears tokens and redirects to login
-- [x] Mobile responsive design (tested at 375px width)
+### Registration Tests
+- [x] All fields render correctly
+- [x] Email validation
+- [x] Username validation (3+ chars, alphanumeric)
+- [x] Password strength indicator (Weak/Medium/Strong)
+- [x] Confirm password match
+- [x] Phone validation (+48XXXXXXXXX)
+- [x] Terms checkbox required
+- [x] Duplicate detection
+- [x] Success redirect
+- [x] Mobile responsive
 
 ### Test Credentials
-
 ```
-Username: testuser
-Password: Test1234
+Login: testuser / Test1234
+Register: Use unique email/username
 ```
 
 ## 📱 Responsive Design
 
-The application is fully responsive and tested on:
+Tested on:
+- Mobile: 375px+
+- Tablet: 768px+
+- Desktop: 1024px+
 
-- Desktop (1920x1080)
-- Laptop (1366x768)
-- Tablet (768x1024)
-- Mobile (375x667)
+## 🔒 Security
 
-## 🔒 Security Features
+- JWT authentication
+- localStorage token storage
+- Auto token refresh
+- Protected routes
+- Password masking
+- Input validation
+- XSS protection
 
-- JWT token-based authentication
-- Secure token storage in localStorage
-- Automatic token refresh mechanism
-- Protected routes with authentication checks
-- HTTPS ready (use HTTPS in production)
-- Password input masking with toggle
+## 🚧 Upcoming Features
 
-## 🚧 Upcoming Features (Phase 7+)
-
-- [ ] User registration page
-- [ ] Password reset functionality
 - [ ] Deals browsing interface
+- [ ] Search and filters
 - [ ] Deal details page
-- [ ] Favorites management
-- [ ] User reviews and ratings
-- [ ] User profile management
-- [ ] Search and filter deals
-- [ ] Business owner dashboard
+- [ ] Favorites system
+- [ ] User reviews
+- [ ] Profile management
+- [ ] Password reset
+- [ ] Business dashboard
 
-## 📊 Development Progress
+## 📊 Progress
 
-**Phase 5:** Backend API - ✅ Complete  
-**Phase 6:** Frontend Authentication - ✅ Complete  
-**Phase 7:** Registration & Deals Browsing - 🔄 In Progress
+**Phase 5:** Backend - ✅ Complete  
+**Phase 6:** Authentication - ✅ Complete  
+**Phase 7:** Deals Browsing - 🔄 Next
 
-## 🤝 Contributing
+## 🤝 Team
 
-This is an academic project for WSB University. Team members:
-
-- **Jenefer Yago** 
-- **Mahammad Rustamov** 
-- **Rustam Islamov** 
+- **Jenefer Yago**
+- **Rustam Islamov**
+- **Mahammad Rustamov**
 - **Rustam Yariyev**
 - **Sadig Shikhaliyev**
 
-## 📄 License
+## 🔗 Related
 
-This project is created for educational purposes as part of the Agile Project Management course at WSB University.
+- [SaveMate Backend](https://github.com/jenfranx30/savemate-backend)
 
-## 🔗 Related Repositories
+---
 
-- [SaveMate Backend](https://github.com/jenfranx30/savemate-backend) - FastAPI backend with MongoDB
-
-## 📧 Contact
-
-For questions or issues, please contact the development team through GitHub issues.
+**Built with ❤️ using React + Vite + Tailwind CSS**
