@@ -1,18 +1,28 @@
 // src/components/HomePage.jsx
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import CategoryList from './CategoryList';
 import FeaturedDeals from './FeaturedDeals';
+import ExternalDeals from './ExternalDeals';
 
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
 
   const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      console.log('Searching for:', searchQuery);
-      // TODO: Navigate to search results page or filter deals
-      // For now, just log it
-    }
+  e.preventDefault();
+  if (searchQuery.trim()) {
+    // Navigate to search results page
+    navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+  }
+};
+
+  const handleSignIn = () => {
+    navigate('/login');
+  };
+
+  const handleGetStarted = () => {
+    navigate('/register');
   };
 
   return (
@@ -23,27 +33,39 @@ export default function HomePage() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900 cursor-pointer" onClick={() => navigate('/')}>
                 SaveMate
               </h1>
             </div>
 
             {/* Navigation Links */}
             <div className="hidden md:flex items-center gap-6">
-              <a href="#" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
+              <button 
+                onClick={() => console.log('Deals clicked')}
+                className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+              >
                 Deals
-              </a>
-              <a href="#" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
+              </button>
+              <button 
+                onClick={() => console.log('Categories clicked')}
+                className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+              >
                 Categories
-              </a>
-              <a href="#" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
+              </button>
+              <button 
+                onClick={() => console.log('About clicked')}
+                className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+              >
                 About
-              </a>
+              </button>
             </div>
 
             {/* Sign In Button */}
             <div>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200">
+              <button 
+                onClick={handleSignIn}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
+              >
                 Sign In
               </button>
             </div>
@@ -112,6 +134,9 @@ export default function HomePage() {
       {/* Featured Deals Section */}
       <FeaturedDeals />
 
+      {/* External Deals Section - NEW! */}
+      <ExternalDeals />
+
       {/* Call to Action Section */}
       <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-16">
         <div className="container mx-auto px-4 text-center">
@@ -121,7 +146,10 @@ export default function HomePage() {
           <p className="text-xl mb-8 text-blue-100">
             Join thousands of savvy shoppers finding the best deals every day.
           </p>
-          <button className="bg-white text-blue-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-50 transition-colors duration-200">
+          <button 
+            onClick={handleGetStarted}
+            className="bg-white text-blue-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-50 transition-colors duration-200"
+          >
             Get Started
           </button>
         </div>
@@ -143,9 +171,9 @@ export default function HomePage() {
             <div>
               <h3 className="text-lg font-bold mb-4">Quick Links</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">About Us</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">How It Works</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Contact</a></li>
+                <li><button onClick={() => console.log('About')} className="text-gray-400 hover:text-white transition-colors">About Us</button></li>
+                <li><button onClick={() => console.log('How it works')} className="text-gray-400 hover:text-white transition-colors">How It Works</button></li>
+                <li><button onClick={() => console.log('Contact')} className="text-gray-400 hover:text-white transition-colors">Contact</button></li>
               </ul>
             </div>
 
@@ -153,9 +181,9 @@ export default function HomePage() {
             <div>
               <h3 className="text-lg font-bold mb-4">For Business</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">List Your Business</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Advertise</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Business Portal</a></li>
+                <li><button onClick={() => console.log('List business')} className="text-gray-400 hover:text-white transition-colors">List Your Business</button></li>
+                <li><button onClick={() => console.log('Advertise')} className="text-gray-400 hover:text-white transition-colors">Advertise</button></li>
+                <li><button onClick={() => console.log('Business portal')} className="text-gray-400 hover:text-white transition-colors">Business Portal</button></li>
               </ul>
             </div>
 
@@ -163,9 +191,9 @@ export default function HomePage() {
             <div>
               <h3 className="text-lg font-bold mb-4">Follow Us</h3>
               <div className="flex gap-4">
-                <a href="#" className="text-gray-400 hover:text-white transition-colors text-2xl">📘</a>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors text-2xl">🐦</a>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors text-2xl">📸</a>
+                <button onClick={() => console.log('Facebook')} className="text-gray-400 hover:text-white transition-colors text-2xl">📘</button>
+                <button onClick={() => console.log('Twitter')} className="text-gray-400 hover:text-white transition-colors text-2xl">🐦</button>
+                <button onClick={() => console.log('Instagram')} className="text-gray-400 hover:text-white transition-colors text-2xl">📸</button>
               </div>
             </div>
           </div>

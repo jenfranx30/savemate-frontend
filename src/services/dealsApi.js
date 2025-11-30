@@ -38,7 +38,6 @@ api.interceptors.response.use(
 );
 
 // ========== CATEGORIES API ==========
-
 export const getFeaturedCategories = async () => {
   try {
     const response = await api.get('/categories/featured');
@@ -70,7 +69,6 @@ export const getCategoryBySlug = async (slug) => {
 };
 
 // ========== DEALS API ==========
-
 export const getFeaturedDeals = async () => {
   try {
     const response = await api.get('/deals/', {
