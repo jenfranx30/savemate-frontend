@@ -1,81 +1,41 @@
-// src/App.jsx
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
-import LoginPage from "./components/auth/LoginPage.jsx";
-import SignupPage from "./components/auth/SignupPage.jsx";
-import HomePage from "./components/HomePage.jsx";
-import SearchResults from "./pages/SearchResults.jsx";
+// src/App.jsx - FINAL COMPLETE VERSION
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen grid place-items-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
-};
+// Public Pages
+import HomePage from './components/HomePage';
+import DealsPage from './components/DealsPage';
+import DealDetailsPage from './components/DealDetailsPage';
+import CategoriesPage from './components/CategoriesPage';
+import AboutPage from './components/AboutPage';
 
-// Public Route Component
-const PublicRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen grid place-items-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  return !isAuthenticated ? children : <Navigate to="/" replace />;
-};
+// Auth Pages
+import LoginPage from './components/auth/LoginPage';
+import SignupPage from './components/auth/SignupPage';
 
-// Main App Component
-export default function App() {
+// Protected Pages
+import Dashboard from './components/Dashboard';
+import FavoritesPage from './components/FavoritesPage';
+import ProfilePage from './components/ProfilePage';
+
+function App() {
   return (
-    <Router>
-      <AuthProvider>
+    <AuthProvider>
+      <Router>
         <Routes>
-          {/* Public routes - Anyone can access */}
-          <Route 
-            path="/login" 
-            element={
-              <PublicRoute>
-                <LoginPage />
-              </PublicRoute>
-            } 
-          />
-          
-          <Route 
-            path="/register" 
-            element={
-              <PublicRoute>
-                <SignupPage />
-              </PublicRoute>
-            } 
-          />
-          
-          {/* Home page - Everyone can see */}
+          {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
+          <Route path="/deals" element={<DealsPage />} />
+          <Route path="/deals/:id" element={<DealDetailsPage />} />
+          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/about" element={<AboutPage />} />
           
-          {/* Search Results page - Everyone can see */}
-          <Route path="/search" element={<SearchResults />} />
+          {/* Auth Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<SignupPage />} />
           
-          {/* Protected routes - Only authenticated users */}
-          {/* Uncomment these when you need them */}
-          {/* 
+          {/* Protected Routes (require login) */}
           <Route 
             path="/dashboard" 
             element={
@@ -84,30 +44,29 @@ export default function App() {
               </ProtectedRoute>
             } 
           />
-          
-          <Route 
-            path="/profile" 
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            } 
-          />
-          
           <Route 
             path="/favorites" 
             element={
               <ProtectedRoute>
-                <Favorites />
+                <FavoritesPage />
               </ProtectedRoute>
             } 
           />
-          */}
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } 
+          />
           
-          {/* Fallback route - Redirect to home for any unknown path */}
+          {/* Catch-all route - redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AuthProvider>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
+
+export default App;

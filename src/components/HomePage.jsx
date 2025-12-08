@@ -1,4 +1,4 @@
-// src/components/HomePage.jsx
+// src/components/HomePage.jsx - CORRECTED VERSION (Cursor Fixed)
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CategoryList from './CategoryList';
@@ -10,12 +10,15 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   const handleSearch = (e) => {
-  e.preventDefault();
-  if (searchQuery.trim()) {
-    // Navigate to search results page
-    navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
-  }
-};
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      // Navigate to deals page with search query
+      navigate(`/deals?search=${encodeURIComponent(searchQuery)}`);
+    } else {
+      // If empty, just go to deals page
+      navigate('/deals');
+    }
+  };
 
   const handleSignIn = () => {
     navigate('/login');
@@ -31,7 +34,7 @@ export default function HomePage() {
       <nav className="bg-white shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
+            {/* Logo - Clickable in navbar */}
             <div className="flex items-center">
               <h1 className="text-2xl font-bold text-gray-900 cursor-pointer" onClick={() => navigate('/')}>
                 SaveMate
@@ -41,19 +44,19 @@ export default function HomePage() {
             {/* Navigation Links */}
             <div className="hidden md:flex items-center gap-6">
               <button 
-                onClick={() => console.log('Deals clicked')}
+                onClick={() => navigate('/deals')}
                 className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
               >
                 Deals
               </button>
               <button 
-                onClick={() => console.log('Categories clicked')}
+                onClick={() => navigate('/categories')}
                 className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
               >
                 Categories
               </button>
               <button 
-                onClick={() => console.log('About clicked')}
+                onClick={() => navigate('/about')}
                 className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
               >
                 About
@@ -76,7 +79,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-blue-600 to-purple-700 text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          {/* Hero Title */}
+          {/* Hero Title - CURSOR FIXED: Removed cursor-pointer */}
           <h1 className="text-5xl md:text-6xl font-bold mb-6">
             Welcome to SaveMate
           </h1>
@@ -134,7 +137,7 @@ export default function HomePage() {
       {/* Featured Deals Section */}
       <FeaturedDeals />
 
-      {/* External Deals Section - NEW! */}
+      {/* External Deals Section */}
       <ExternalDeals />
 
       {/* Call to Action Section */}
@@ -171,9 +174,30 @@ export default function HomePage() {
             <div>
               <h3 className="text-lg font-bold mb-4">Quick Links</h3>
               <ul className="space-y-2">
-                <li><button onClick={() => console.log('About')} className="text-gray-400 hover:text-white transition-colors">About Us</button></li>
-                <li><button onClick={() => console.log('How it works')} className="text-gray-400 hover:text-white transition-colors">How It Works</button></li>
-                <li><button onClick={() => console.log('Contact')} className="text-gray-400 hover:text-white transition-colors">Contact</button></li>
+                <li>
+                  <button 
+                    onClick={() => navigate('/about')} 
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    About Us
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => navigate('/about')} 
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    How It Works
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => navigate('/about')} 
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    Contact
+                  </button>
+                </li>
               </ul>
             </div>
 
@@ -181,9 +205,30 @@ export default function HomePage() {
             <div>
               <h3 className="text-lg font-bold mb-4">For Business</h3>
               <ul className="space-y-2">
-                <li><button onClick={() => console.log('List business')} className="text-gray-400 hover:text-white transition-colors">List Your Business</button></li>
-                <li><button onClick={() => console.log('Advertise')} className="text-gray-400 hover:text-white transition-colors">Advertise</button></li>
-                <li><button onClick={() => console.log('Business portal')} className="text-gray-400 hover:text-white transition-colors">Business Portal</button></li>
+                <li>
+                  <button 
+                    onClick={() => navigate('/register')} 
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    List Your Business
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => navigate('/about')} 
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    Advertise
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => navigate('/login')} 
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    Business Portal
+                  </button>
+                </li>
               </ul>
             </div>
 
@@ -191,9 +236,24 @@ export default function HomePage() {
             <div>
               <h3 className="text-lg font-bold mb-4">Follow Us</h3>
               <div className="flex gap-4">
-                <button onClick={() => console.log('Facebook')} className="text-gray-400 hover:text-white transition-colors text-2xl">📘</button>
-                <button onClick={() => console.log('Twitter')} className="text-gray-400 hover:text-white transition-colors text-2xl">🐦</button>
-                <button onClick={() => console.log('Instagram')} className="text-gray-400 hover:text-white transition-colors text-2xl">📸</button>
+                <button 
+                  onClick={() => window.open('https://facebook.com', '_blank')} 
+                  className="text-gray-400 hover:text-white transition-colors text-2xl"
+                >
+                  📘
+                </button>
+                <button 
+                  onClick={() => window.open('https://twitter.com', '_blank')} 
+                  className="text-gray-400 hover:text-white transition-colors text-2xl"
+                >
+                  🐦
+                </button>
+                <button 
+                  onClick={() => window.open('https://instagram.com', '_blank')} 
+                  className="text-gray-400 hover:text-white transition-colors text-2xl"
+                >
+                  📸
+                </button>
               </div>
             </div>
           </div>
