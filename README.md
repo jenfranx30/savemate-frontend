@@ -54,8 +54,7 @@ SaveMate is a local deals platform connecting Polish consumers with businesses o
 **Institution:** WSB University, Dąbrowa Górnicza  
 **Methodology:** Kanban  
 **Professor:** Prof. Dawid Jurczyński  
-**Timeline:** November 2024 - January 2025  
-**Presentation:** December 9, 2024
+**Timeline:** November 2025 - January 2026
 
 ---
 
@@ -861,7 +860,7 @@ VITE_ENV=production
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
