@@ -239,6 +239,337 @@ Tested on:
 **Phase 6:** Authentication - ✅ Complete  
 **Phase 7:** Deals Browsing - 🔄 Next
 
+## 🚀 Latest Updates (December 2024)
+Recent Progress - Commit 582642e ✨
+New Features Implemented:
+
+✅ "My Favorites" Section - Beautiful 3-card category grid on homepage
+✅ Backend API Integration - Connected to localhost:8000/api/v1/categories
+✅ Modern UI Design - Gradient overlays, smooth animations, hover effects
+✅ Responsive Layout - Mobile-first design with 3-column grid on desktop
+✅ Loading States - Animated skeleton loaders for better UX
+✅ Deal Count Badges - Real-time display of active deals per category
+
+## Component Updates:
+
+CategoryList.jsx - Complete redesign with new API integration
+
+Changed from horizontal scroll to grid layout
+Added gradient backgrounds (blue-to-purple theme)
+Implemented hover animations and transforms
+Icon containers with rounded corners
+"Explore All Categories" button with arrow animation
+Responsive 3-column layout (1 col mobile, 3 cols desktop)
+
+
+
+## Technical Improvements:
+
+✅ Fetch data from backend /api/v1/categories endpoint
+✅ Handle both array and object API responses
+✅ Show only first 3 categories on homepage
+✅ Error handling with empty array fallback
+✅ Navigate to category-specific deals on click
+✅ Professional loading states with pulse animation
+
+## Files Modified:
+
+src/components/CategoryList.jsx (+93 / -129 lines)
+src/components/HomePage.jsx (updated to use new CategoryList)
+src/components/ExternalDeals.jsx (multiple iterations)
+src/services/favoriteUtils.js (utility functions)
+
+
+## 🎨 UI/UX Features
+"My Favorites" Section (NEW)
+The homepage now features a stunning "My Favorites" section with:
+Visual Design:
+
+🎨 Gradient Backgrounds - Smooth blue-to-purple gradients
+🎭 Hover Effects - Scale transforms and shadow transitions
+🎯 Icon Containers - Rounded squares with gradient backgrounds
+🏷️ Deal Count Badges - Shows active deals with SVG icons
+➡️ Arrow Navigation - Animated arrow icons on hover
+🌈 Color Scheme - Professional blue/purple theme
+
+
+## Component Architecture
+HomePage.jsx:
+
+Hero section with search
+CategoryList component (3 featured categories)
+Featured deals section
+Call-to-action sections
+
+## CategoryList.jsx:
+
+Fetches from /api/v1/categories API
+Displays first 3 categories
+Loading skeleton animation
+Error handling with empty state
+"Explore All Categories" button
+Navigation to category-specific pages
+
+## ExternalDeals.jsx:
+
+Integration with external deal sources
+Multiple iterations showing development progress
+Deal aggregation from RSS feeds
+
+
+## 🛠️ Tech Stack
+## Core Framework
+
+React 18.3.1 - UI library
+Vite 5.4.11 - Build tool and dev server
+React Router DOM 7.0.1 - Client-side routing
+
+## Styling
+
+Tailwind CSS 3.4.17 - Utility-first CSS framework
+PostCSS 8.4.49 - CSS transformation
+Autoprefixer 10.4.20 - CSS vendor prefixing
+
+## HTTP and Data
+
+Axios 1.7.9 - HTTP client for API calls
+React Query (planned) - Data fetching and caching
+
+## Development Tools
+
+ESLint - Code linting
+Prettier (planned) - Code formatting
+Vite HMR - Hot module replacement
+
+
+## 📁 Project Structure
+
+savemate-frontend/
+├── public/
+│   └── vite.svg                    # Vite logo
+│
+├── src/
+│   ├── assets/                     # Static assets
+│   │   └── react.svg
+│   │
+│   ├── components/                 # React components
+│   │   ├── CategoryList.jsx        # Category grid component (UPDATED)
+│   │   ├── CategoryCard.jsx        # Individual category card
+│   │   ├── HomePage.jsx            # Homepage layout (UPDATED)
+│   │   ├── ExternalDeals.jsx       # External deals integration (NEW)
+│   │   ├── LoadingSpinner.jsx      # Loading indicator
+│   │   ├── Navigation.jsx          # Top navigation bar
+│   │   ├── Footer.jsx              # Footer component
+│   │   ├── SearchBar.jsx           # Search functionality
+│   │   └── DealCard.jsx            # Deal display card
+│   │
+│   ├── services/                   # API and utility services
+│   │   ├── api.js                  # Axios instance configuration
+│   │   ├── dealsApi.js             # Deal-related API calls
+│   │   ├── categoryApi.js          # Category API calls (NEW)
+│   │   └── favoriteUtils.js        # Favorites utilities (UPDATED)
+│   │
+│   ├── pages/                      # Page components
+│   │   ├── Home.jsx               # Homepage
+│   │   ├── Deals.jsx              # Deals listing page
+│   │   ├── Categories.jsx         # All categories page
+│   │   ├── DealDetail.jsx         # Single deal view
+│   │   ├── Login.jsx              # Login page
+│   │   ├── Register.jsx           # Registration page
+│   │   └── Profile.jsx            # User profile
+│   │
+│   ├── hooks/                      # Custom React hooks (planned)
+│   │   ├── useAuth.js             # Authentication hook
+│   │   ├── useCategories.js       # Categories data hook (NEW)
+│   │   └── useDeals.js            # Deals data hook
+│   │
+│   ├── context/                    # React Context providers (planned)
+│   │   ├── AuthContext.jsx        # Authentication context
+│   │   └── AppContext.jsx         # Global app state
+│   │
+│   ├── utils/                      # Utility functions
+│   │   ├── formatters.js          # Data formatting
+│   │   └── validators.js          # Form validation
+│   │
+│   ├── App.jsx                     # Main App component
+│   ├── App.css                     # Global styles
+│   ├── index.css                   # Tailwind directives
+│   └── main.jsx                    # App entry point
+│
+├── .gitignore                      # Git ignore file
+├── index.html                      # HTML template
+├── package.json                    # Dependencies and scripts
+├── package-lock.json               # Locked dependencies
+├── vite.config.js                  # Vite configuration
+├── tailwind.config.js              # Tailwind configuration
+├── postcss.config.js               # PostCSS configuration
+├── eslint.config.js                # ESLint configuration
+└── README.md                       # This file (UPDATED)
+
+## 🚀 Installation and Setup
+Prerequisites
+
+Node.js 18+ or higher
+npm 9+ or yarn 1.22+
+Git
+Backend API running on localhost:8000
+
+## Step 1: Clone the Repository
+git clone https://github.com/jenfranx30/savemate-frontend.git
+cd savemate-frontend
+
+## Step 2: Install Dependencies
+npm install
+# or
+yarn install
+
+## Key Dependencies Installed:
+{
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.0.1",
+    "axios": "^1.7.9"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11",
+    "tailwindcss": "^3.4.17",
+    "postcss": "^8.4.49",
+    "autoprefixer": "^10.4.20",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.17.0"
+  }
+}
+
+
+## Step 3: Configure Environment
+Create a .env file in the root directory:
+
+# Backend API Configuration
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_API_TIMEOUT=30000
+
+# Feature Flags
+VITE_ENABLE_EXTERNAL_DEALS=true
+VITE_ENABLE_GEOLOCATION=false
+
+# Environment
+VITE_ENV=development
+
+Note: All environment variables must start with VITE_ to be accessible in the application.
+
+## Step 4: Start Development Server
+
+npm run dev
+# or
+yarn dev
+
+## Expected output:
+
+VITE v5.4.11  ready in 234 ms
+
+➜  Local:   http://localhost:5173/
+➜  Network: use --host to expose
+➜  press h + enter to show help
+
+## Step 5: Open in Browser
+Navigate to: http://localhost:5173
+
+## Step 6: Verify Backend Connection
+Check the browser console for:
+
+✅ Successful API call to http://localhost:8000/api/v1/categories
+✅ Category data loaded
+✅ No CORS errors
+
+If you see CORS errors, ensure the backend is running and configured properly.
+
+## 🔌 API Integration
+Backend Connection Configuration
+API Base URL: http://localhost:8000/api/v1
+Axios Configuration (src/services/api.js):
+
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor for auth tokens
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Handle token expiration
+      localStorage.removeItem('access_token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+
+
+## Category API Integration (NEW)
+Endpoint: GET /api/v1/categories
+Component: CategoryList.jsx
+
+const fetchCategories = async () => {
+  try {
+    const response = await fetch('http://localhost:8000/api/v1/categories');
+    const data = await response.json();
+    // Handle both array and object responses
+    const categoriesArray = Array.isArray(data) ? data : (data.categories || []);
+    // Show only first 3 categories on homepage
+    setCategories(categoriesArray.slice(0, 3));
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    setCategories([]); // Set empty array on error
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
+## 🔄 In Progress
+
+User authentication UI
+Deal search and filtering
+User profile page
+Favorites management UI
+Review submission form
+
+## 🔜 Upcoming Features
+
+Advanced search with filters
+Geolocation-based deals
+Deal comparison tool
+Social media sharing
+Email notification preferences
+Dark mode support
+Progressive Web App (PWA)
+Internationalization (Polish/English)
+
+
+
 ## 🤝 Team
 
 - **Jenefer Yago**
@@ -253,4 +584,6 @@ Tested on:
 
 ---
 
-**Built with ❤️ using React + Vite + Tailwind CSS**
+## 📄 License
+This project is part of an academic course (Agile Project Management) at WSB University.
+Academic Use Only - Not for commercial distribution without permission.
