@@ -2,7 +2,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function ProtectedRoute({ children }) {
+export default function ProtectedRoute({ children, requireBusiness = false }) {
   const { user, loading } = useAuth();
 
   // Show loading state while checking authentication
@@ -19,9 +19,23 @@ export default function ProtectedRoute({ children }) {
 
   // If not authenticated, redirect to login
   if (!user) {
+    console.log('❌ Not authenticated, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
-  // If authenticated, render the protected content
+  // If business account required, check account type
+  if (requireBusiness) {
+    const isBusinessAccount = user.accountType === 'business';
+    
+    if (!isBusinessAccount) {
+      console.log('❌ Business account required, redirecting to home');
+      alert('This page is only accessible to business accounts. Please create a business account to access this feature.');
+      return <Navigate to="/" replace />;
+    }
+    
+    console.log('✅ Business account verified, allowing access');
+  }
+
+  // If authenticated (and business if required), render the protected content
   return children;
 }

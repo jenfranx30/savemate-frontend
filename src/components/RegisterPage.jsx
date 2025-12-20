@@ -1,4 +1,4 @@
-// src/components/auth/RegisterPage.jsx - FINAL WORKING VERSION
+// src/components/auth/RegisterPage.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 

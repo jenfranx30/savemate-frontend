@@ -1,4 +1,4 @@
-// src/components/ExternalDeals.jsx - FULLY FUNCTIONAL
+// src/components/ExternalDeals.jsx
 import { useState, useEffect } from 'react';
 
 export default function ExternalDeals() {
@@ -138,29 +138,62 @@ export default function ExternalDeals() {
     }
   };
 
-  const getVisitButton = () => {
+  const getVisitButtons = () => {
     if (activeSource === 'all') {
       return (
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
+          {/* Slickdeals Button */}
           <a
             href="https://slickdeals.net"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-blue-600 text-white px-8 py-4 rounded-xl font-semibold hover:bg-blue-700 transition-all duration-200 inline-flex items-center justify-center gap-2"
+            className="bg-blue-600 text-white px-6 py-4 rounded-xl font-semibold hover:bg-blue-700 transition-all duration-200 flex items-center justify-center gap-2"
           >
-            🔥 Visit Slickdeals
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span className="text-xl">🔥</span>
+            <span>Visit Slickdeals</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
+
+          {/* Reddit Button */}
           <a
             href="https://www.reddit.com/r/deals"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-orange-600 text-white px-8 py-4 rounded-xl font-semibold hover:bg-orange-700 transition-all duration-200 inline-flex items-center justify-center gap-2"
+            className="bg-orange-600 text-white px-6 py-4 rounded-xl font-semibold hover:bg-orange-700 transition-all duration-200 flex items-center justify-center gap-2"
           >
-            🤖 Visit Reddit
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span className="text-xl">🤖</span>
+            <span>Visit Reddit</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+
+          {/* Coupons Button */}
+          <a
+            href="https://www.coupons.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-green-600 text-white px-6 py-4 rounded-xl font-semibold hover:bg-green-700 transition-all duration-200 flex items-center justify-center gap-2"
+          >
+            <span className="text-xl">🎟️</span>
+            <span>Visit Coupons</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+
+          {/* Groupon Button */}
+          <a
+            href="https://www.groupon.pl"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-purple-600 text-white px-6 py-4 rounded-xl font-semibold hover:bg-purple-700 transition-all duration-200 flex items-center justify-center gap-2"
+          >
+            <span className="text-xl">💰</span>
+            <span>Visit Groupon</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
@@ -344,9 +377,29 @@ export default function ExternalDeals() {
               })}
             </div>
 
-            {/* Visit Website Buttons */}
-            <div className="text-center">
-              {getVisitButton()}
+            {/* Visit Website Buttons - NOW WITH 4 BUTTONS */}
+            <div className="mb-8">
+              {getVisitButtons()}
+            </div>
+
+            {/* Description Text Below Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto text-center text-sm text-gray-600">
+              <div>
+                <p className="font-semibold text-blue-600 mb-1">Slickdeals</p>
+                <p>Community-driven deals and discounts</p>
+              </div>
+              <div>
+                <p className="font-semibold text-orange-600 mb-1">Reddit</p>
+                <p>Real user-shared deals from r/deals</p>
+              </div>
+              <div>
+                <p className="font-semibold text-green-600 mb-1">Coupons</p>
+                <p>Promo codes and cashback for December 2025</p>
+              </div>
+              <div>
+                <p className="font-semibold text-purple-600 mb-1">Groupon</p>
+                <p>Save up to 70% on experiences and products</p>
+              </div>
             </div>
           </>
         )}

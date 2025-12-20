@@ -1,11 +1,156 @@
-// src/components/DealsPage.jsx
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getAllDeals } from '../services/dealService'; // ← ADDED
+// src/components/BusinessDeals.jsx
 
-// BUSINESS DEALS DATA - 56 deals from Pizza Paradise and Sklep Charytatywny
-const getAllBusinessDeals = () => {
-    return [
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import notificationService from '../services/notificationService';
+import { getAllDeals } from '../services/dealService'; // ← ADDED: Import dealService
+
+export default function BusinessDeals() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [favorites, setFavorites] = useState([]);
+  const [activeBusiness, setActiveBusiness] = useState('all');
+  const [filteredDeals, setFilteredDeals] = useState([]);
+  const [greeting, setGreeting] = useState('');
+  const [firstName, setFirstName] = useState('User');
+
+  useEffect(() => {
+    loadFavorites();
+    checkExpiringDeals();
+    setTimeBasedGreeting();
+    getUserFirstName();
+    filterDealsByBusiness(); // ← Load deals on mount
+    
+    const expirationInterval = setInterval(checkExpiringDeals, 3600000);
+    
+    const handleFavoritesChange = () => {
+      loadFavorites();
+    };
+    
+    // ← ADDED: Listen for deal updates
+    const handleDealsUpdate = () => {
+      console.log('🔄 Deals updated, reloading BusinessDeals...');
+      filterDealsByBusiness();
+    };
+    
+    window.addEventListener('favoritesChanged', handleFavoritesChange);
+    window.addEventListener('storage', handleFavoritesChange);
+    window.addEventListener('storage', handleDealsUpdate); // ← ADDED
+    window.addEventListener('dealsUpdated', handleDealsUpdate); // ← ADDED
+    
+    return () => {
+      window.removeEventListener('favoritesChanged', handleFavoritesChange);
+      window.removeEventListener('storage', handleFavoritesChange);
+      window.removeEventListener('storage', handleDealsUpdate); // ← ADDED
+      window.removeEventListener('dealsUpdated', handleDealsUpdate); // ← ADDED
+      clearInterval(expirationInterval);
+    };
+  }, [user]);
+
+  useEffect(() => {
+    filterDealsByBusiness();
+  }, [activeBusiness]);
+
+  // Set time-based greeting
+  const setTimeBasedGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      setGreeting('Good Morning');
+    } else if (hour < 18) {
+      setGreeting('Good Afternoon');
+    } else {
+      setGreeting('Good Evening');
+    }
+  };
+
+  // Get user's first name
+  const getUserFirstName = () => {
+    if (user) {
+      const name = user.firstName || user.name?.split(' ')[0] || 'User';
+      setFirstName(name);
+    } else {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const name = storedUser.firstName || storedUser.name?.split(' ')[0] || 'User';
+      setFirstName(name);
+    }
+  };
+
+  const loadFavorites = () => {
+    try {
+      const guestFavorites = JSON.parse(localStorage.getItem('guestFavorites') || '[]');
+      const favoriteIds = guestFavorites.map(f => f.deal_id || f.id);
+      setFavorites(favoriteIds);
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+      setFavorites([]);
+    }
+  };
+
+  const checkExpiringDeals = () => {
+    const guestFavorites = JSON.parse(localStorage.getItem('guestFavorites') || '[]');
+    const now = new Date();
+    
+    guestFavorites.forEach(fav => {
+      if (fav.validUntil) {
+        const expiryDate = new Date(fav.validUntil);
+        const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilExpiry > 0 && daysUntilExpiry <= 3) {
+          const lastNotified = localStorage.getItem(`expiry_notified_${fav.deal_id}`);
+          const today = new Date().toDateString();
+          
+          if (lastNotified !== today) {
+            notificationService.createExpiringDealNotification(fav.title, daysUntilExpiry);
+            localStorage.setItem(`expiry_notified_${fav.deal_id}`, today);
+          }
+        }
+      }
+    });
+  };
+
+  const isExpired = (validUntil) => {
+    if (!validUntil) return false;
+    return new Date(validUntil) < new Date();
+  };
+
+  const getDaysUntilExpiry = (validUntil) => {
+    if (!validUntil) return null;
+    const now = new Date();
+    const expiry = new Date(validUntil);
+    const days = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+    return days;
+  };
+
+  const formatExpiryDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
+  };
+
+  // Check if user is authenticated and is business account
+  const isAuthenticated = () => {
+    if (user) return true;
+    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+    return !!storedUser.email;
+  };
+
+  const isBusinessAccount = () => {
+    if (user) return user.accountType === 'business';
+    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+    return storedUser.accountType === 'business';
+  };
+
+  // ← UPDATED: Now uses dealService to merge localStorage and static deals
+  const getAllBusinessDeals = () => {
+    // Get deals from dealService (includes localStorage deals)
+    const dealsFromService = getAllDeals();
+    
+    // Static deals (kept for backward compatibility)
+    const staticDeals = [
       // Pizza Paradise - 6 deals
       {
         id: 'business-deal-1',
@@ -17,7 +162,7 @@ const getAllBusinessDeals = () => {
         businessName: "Pizza Paradise",
         location: "Warsaw, Mokotów",
         city: "Warsaw",
-        category: "food",
+        category: "Food & Dining",
         originalPrice: 39.99,
         discountedPrice: 19.99,
         description: "Enjoy delicious handcrafted pizzas with premium toppings.",
@@ -34,7 +179,7 @@ const getAllBusinessDeals = () => {
         businessName: "Pizza Paradise",
         location: "Warsaw, Mokotów",
         city: "Warsaw",
-        category: "food",
+        category: "Food & Dining",
         originalPrice: 29.99,
         discountedPrice: 19.49,
         description: "Juicy burgers with fresh ingredients.",
@@ -51,7 +196,7 @@ const getAllBusinessDeals = () => {
         businessName: "Pizza Paradise",
         location: "Warsaw, Mokotów",
         city: "Warsaw",
-        category: "food",
+        category: "Food & Dining",
         originalPrice: 89.99,
         discountedPrice: 53.99,
         description: "Unlimited fresh sushi, sashimi, and rolls.",
@@ -68,7 +213,7 @@ const getAllBusinessDeals = () => {
         businessName: "Pizza Paradise",
         location: "Warsaw, Mokotów",
         city: "Warsaw",
-        category: "food",
+        category: "Food & Dining",
         originalPrice: 24.99,
         discountedPrice: 17.49,
         description: "Artisan coffee paired with freshly baked pastries.",
@@ -85,7 +230,7 @@ const getAllBusinessDeals = () => {
         businessName: "Pizza Paradise",
         location: "Warsaw, Mokotów",
         city: "Warsaw",
-        category: "food",
+        category: "Food & Dining",
         originalPrice: 34.99,
         discountedPrice: 19.24,
         description: "Nutritious bowls with fresh vegetables.",
@@ -102,7 +247,7 @@ const getAllBusinessDeals = () => {
         businessName: "Pizza Paradise",
         location: "Warsaw, Mokotów",
         city: "Warsaw",
-        category: "food",
+        category: "Food & Dining",
         originalPrice: 119.99,
         discountedPrice: 59.99,
         description: "Expertly grilled premium cuts.",
@@ -110,7 +255,7 @@ const getAllBusinessDeals = () => {
         source: "business"
       },
 
-      // SKLEP CHARYTATYWNY - 50 DEALS
+	// SKLEP CHARYTATYWNY - 50 DEALS
       // Breads (5 deals)
       {
         id: 'business-deal-7',
@@ -1071,7 +1216,7 @@ const getAllBusinessDeals = () => {
         businessName: "Sklep Charytatywny",
         location: "Warsaw, Poland",
         city: "Warsaw",
-        category: "Food ",
+        category: "Grocery & Food ",
         originalPrice: 2.91,
         discountedPrice: 2.22,
         description: "Classic licorice twists sweet treat.",
@@ -1081,76 +1226,9 @@ const getAllBusinessDeals = () => {
         source: "business"
       }
     ];
-  };
 
-export default function DealsPage() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  
-  const initialSearch = searchParams.get('search') || '';
-  const initialCategory = searchParams.get('category') || 'all';
-  const businessNameParam = searchParams.get('businessName') || '';
-  
-  const [allDeals, setAllDeals] = useState([]); // ← FIXED: Changed from getAllBusinessDeals() to []
-  const [filteredDeals, setFilteredDeals] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(initialSearch);
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
-  const [selectedLocation, setSelectedLocation] = useState('All Locations');
-  const [minDiscount, setMinDiscount] = useState(0);
-
-  const categories = [
-  { value: 'all', label: 'All Categories', icon: '🏷️' },
-  { value: 'food', label: 'Food & Dining', icon: '🍔' },
-  { value: 'shopping', label: 'Shopping', icon: '🛍️' },
-  { value: 'entertainment', label: 'Entertainment', icon: '🎬' },
-  { value: 'health', label: 'Health & Beauty', icon: '💆' },
-  { value: 'travel', label: 'Travel', icon: '✈️' },
-  { value: 'services', label: 'Services', icon: '🔧' },
-  { value: 'grocery', label: 'Grocery', icon: '🛒' },
-
-  // Sklep Charytatywny categories (match your data)
-  { value: 'grocery-food', label: 'Grocery & Food', icon: '🛒' },
-  { value: 'breads', label: 'Breads', icon: '🍞' },
-  { value: 'frozen-foods', label: 'Frozen Foods', icon: '🧊' },
-  { value: 'snacks', label: 'Snacks', icon: '🍿' },
-  { value: 'dairy', label: 'Dairy', icon: '🥛' },
-  { value: 'vegetables', label: 'Vegetables', icon: '🥦' },
-  { value: 'beverages', label: 'Beverages', icon: '🥤' },
-  { value: 'cereals', label: 'Cereals', icon: '🥣' },
-  { value: 'household', label: 'Household', icon: '🧻' },
-  { value: 'packaged-food', label: 'Packaged Food', icon: '📦' },
-  { value: 'confectionery', label: 'Confectionery', icon: '🍬' }
-];
-
-
-  const locations = [
-    'All Locations',
-    'Warsaw',
-    'Katowice',
-    'Krakow',
-    'Gdansk',
-    'Wroclaw',
-    'Poznan',
-    'Zakopane',
-    'Łódź',
-    'Sopot',
-    'Sosnowiec'
-  ];
-
-  // ← ADDED: Load all deals function
-  const loadAllDeals = () => {
-    console.log('🔄 Loading all deals...');
-    
-    // Get deals from dealService (includes localStorage)
-    const dealsFromService = getAllDeals();
-    
-    // Get static deals
-    const staticDeals = getAllBusinessDeals();
-    
-    // Merge without duplicates
+    // Merge: prioritize deals from service, add missing static deals
     const mergedDeals = [...dealsFromService];
-    
     staticDeals.forEach(staticDeal => {
       const exists = mergedDeals.find(d => 
         (d.id === staticDeal.id) || (d.deal_id === staticDeal.deal_id)
@@ -1159,381 +1237,343 @@ export default function DealsPage() {
         mergedDeals.push(staticDeal);
       }
     });
-    
-    console.log(`✅ DealsPage loaded ${mergedDeals.length} total deals (${dealsFromService.length} from storage, ${staticDeals.length} static)`);
-    setAllDeals(mergedDeals);
+    console.log(`✅ Loaded ${mergedDeals.length} total business deals (${dealsFromService.length} from localStorage, ${staticDeals.length} static)`);
+    return mergedDeals;
   };
 
-  // ← ADDED: useEffect to load deals and listen for updates
-  useEffect(() => {
-    loadAllDeals();
+  const filterDealsByBusiness = () => {
+    const allDeals = getAllBusinessDeals();
     
-    const handleDealsUpdate = () => {
-      console.log('🔄 Deals updated, reloading DealsPage...');
-      loadAllDeals();
-    };
-    
-    window.addEventListener('storage', handleDealsUpdate);
-    window.addEventListener('dealsUpdated', handleDealsUpdate);
-    
-    return () => {
-      window.removeEventListener('storage', handleDealsUpdate);
-      window.removeEventListener('dealsUpdated', handleDealsUpdate);
-    };
-  }, []);
-
-  // Apply filters when they change (INCLUDING businessNameParam)
-  useEffect(() => {
-    applyFilters();
-  }, [allDeals, selectedCategory, selectedLocation, minDiscount, searchQuery, businessNameParam]);
-
-  const applyFilters = () => {
-    let filtered = [...allDeals];
-
-    // Filter by business name FIRST
-    if (businessNameParam) {
-      filtered = filtered.filter(deal => 
-        deal.businessName === businessNameParam
-      );
+    if (activeBusiness === 'all') {
+      const pizzaDeals = allDeals.filter(d => d.businessName === 'Pizza Paradise').slice(0, 3);
+      const sklepDeals = allDeals.filter(d => d.businessName === 'Sklep Charytatywny').slice(0, 3);
+      setFilteredDeals([...pizzaDeals, ...sklepDeals]);
+    } else {
+      const businessDeals = allDeals.filter(d => d.businessName === activeBusiness).slice(0, 6);
+      setFilteredDeals(businessDeals);
     }
-
-    // Filter by category
-    if (selectedCategory && selectedCategory !== 'all') {
-      filtered = filtered.filter(deal => deal.category === selectedCategory);
-    }
-
-    // Filter by location
-    if (selectedLocation && selectedLocation !== 'All Locations') {
-      filtered = filtered.filter(deal => 
-        deal.location?.toLowerCase().includes(selectedLocation.toLowerCase())
-      );
-    }
-
-    // Filter by minimum discount
-    if (minDiscount > 0) {
-      filtered = filtered.filter(deal => deal.discount_percentage >= minDiscount);
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(deal =>
-        deal.title?.toLowerCase().includes(query) ||
-        deal.businessName?.toLowerCase().includes(query) ||
-        deal.location?.toLowerCase().includes(query)
-      );
-    }
-
-    setFilteredDeals(filtered);
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    applyFilters();
+  const toggleFavorite = async (deal) => {
+    const dealId = deal.deal_id || deal.id;
+    const isFav = favorites.includes(dealId);
+    
+    try {
+      const guestFavorites = JSON.parse(localStorage.getItem('guestFavorites') || '[]');
+      
+      if (isFav) {
+        const updated = guestFavorites.filter(f => (f.deal_id || f.id) !== dealId);
+        localStorage.setItem('guestFavorites', JSON.stringify(updated));
+        setFavorites(favorites.filter(id => id !== dealId));
+      } else {
+        guestFavorites.push(deal);
+        localStorage.setItem('guestFavorites', JSON.stringify(guestFavorites));
+        setFavorites([...favorites, dealId]);
+        
+        notificationService.createDealSavedNotification(deal.title);
+        notificationService.createFavoriteNotification(deal.title, 'guest');
+      }
+      
+      window.dispatchEvent(new Event('favoritesChanged'));
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
   };
 
-  const resetFilters = () => {
-    setSelectedCategory('all');
-    setSelectedLocation('All Locations');
-    setMinDiscount(0);
-    setSearchQuery('');
-    navigate('/deals'); // Clear URL parameters
+  const handleViewDetails = (dealId) => {
+    navigate(`/deals/${dealId}`);
   };
 
-  // ← ADDED: Get unique business names for dropdown
-  const getBusinessNames = () => {
-    const names = new Set(allDeals.map(deal => deal.businessName || deal.business_name));
-    return Array.from(names).sort();
+  const formatPrice = (price) => {
+    return `${price.toFixed(2)} zł`;
+  };
+
+  const handleViewAllPizza = () => {
+    navigate('/deals?businessName=Pizza%20Paradise');
+  };
+
+  const handleViewAllSklep = () => {
+    navigate('/deals?businessName=Sklep%20Charytatywny');
+  };
+
+  const handleAddMoreDeals = () => {
+    navigate('/business/post-deal');
+  };
+
+  // ← IMPROVED: Handle List Your Business button
+  const handleListYourBusiness = () => {
+    if (isAuthenticated()) {
+      if (isBusinessAccount()) {
+        // Business user → Go to post deal
+        navigate('/business/post-deal');
+      } else {
+        // Individual user → Suggest creating business account
+        const confirmSwitch = window.confirm(
+          'You need a Business account to post deals. Would you like to create a Business account?'
+        );
+        if (confirmSwitch) {
+          navigate('/register?type=business');
+        }
+      }
+    } else {
+      // Not logged in → Go to business signup
+      navigate('/register?type=business');
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <h1 
-              className="text-2xl font-bold text-gray-900 cursor-pointer" 
-              onClick={() => navigate('/')}
-            >
-              SaveMate
-            </h1>
-            <div className="hidden md:flex items-center gap-6">
-              <button 
-                onClick={() => navigate('/deals')}
-                className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
-              >
-                Deals
-              </button>
-              <button 
-                onClick={() => navigate('/categories')}
-                className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
-              >
-                Categories
-              </button>
-              <button 
-                onClick={() => navigate('/about')}
-                className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
-              >
-                About
-              </button>
-            </div>
-            <button 
-              onClick={() => navigate('/login')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-            >
-              Sign In
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Page Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-12">
-        <div className="container mx-auto px-4">
-          <h1 className="text-4xl font-bold mb-4">
-            {businessNameParam ? `${businessNameParam} Deals` : 'Browse All Deals'}
-          </h1>
-          <p className="text-xl text-blue-100">
-            {filteredDeals.length} amazing deals available
+    <section className="py-20 bg-white">
+      <div className="container mx-auto px-4">
+        {/* Section Header with Greeting */}
+        <div className="text-center mb-12">
+          {isAuthenticated() && (
+            <p className="text-xl text-blue-600 mb-2 font-semibold">
+              {greeting}, {firstName}! 👋
+            </p>
+          )}
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            🏪 Business Deals
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Exclusive offers from local businesses - Support your community!
           </p>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Filters Sidebar */}
-          <aside className="lg:w-64 space-y-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                🔍 Filters
-              </h2>
+        {/* Business Filter Tabs */}
+        <div className="flex justify-center gap-3 mb-12 flex-wrap">
+          <button
+            onClick={() => setActiveBusiness('all')}
+            className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+              activeBusiness === 'all'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            🌐 All Businesses
+          </button>
+          <button
+            onClick={() => setActiveBusiness('Pizza Paradise')}
+            className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+              activeBusiness === 'Pizza Paradise'
+                ? 'bg-red-600 text-white shadow-lg'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            🍕 Pizza Paradise
+          </button>
+          <button
+            onClick={() => setActiveBusiness('Sklep Charytatywny')}
+            className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+              activeBusiness === 'Sklep Charytatywny'
+                ? 'bg-green-600 text-white shadow-lg'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            🛒 Sklep Charytatywny
+          </button>
+        </div>
 
-              {/* Search */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
-                  Search
-                </label>
-                <form onSubmit={handleSearch}>
-                  <input
-                    type="text"
-                    placeholder="Search deals..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </form>
-              </div>
-
-              {/* Business Filter - DYNAMIC */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
-                  Business
-                </label>
-                <select
-                  value={businessNameParam}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      navigate(`/deals?businessName=${encodeURIComponent(e.target.value)}`);
-                    } else {
-                      navigate('/deals');
-                    }
-                  }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">🏢 All Businesses</option>
-                  {getBusinessNames().map(name => (
-                    <option key={name} value={name}>
-                      {name === 'Pizza Paradise' ? '🍕' : name === 'Sklep Charytatywny' ? '🛒' : '🏪'} {name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Category Filter */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
-                  Category
-                </label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {categories.map(cat => (
-                    <option key={cat.value} value={cat.value}>
-                      {cat.icon} {cat.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Location Filter */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
-                  Location
-                </label>
-                <select
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {locations.map(loc => (
-                    <option key={loc} value={loc}>
-                      📍 {loc}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Discount Filter */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
-                  Minimum Discount: {minDiscount}%
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="80"
-                  step="10"
-                  value={minDiscount}
-                  onChange={(e) => setMinDiscount(parseInt(e.target.value))}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>0%</span>
-                  <span>80%</span>
-                </div>
-              </div>
-
-              {/* Reset Button */}
-              <button
-                onClick={resetFilters}
-                className="w-full py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
+        {/* Deals Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto mb-8">
+          {filteredDeals.map((deal) => {
+            const dealId = deal.deal_id || deal.id;
+            const isFavorite = favorites.includes(dealId);
+            const expired = isExpired(deal.validUntil);
+            const daysLeft = getDaysUntilExpiry(deal.validUntil);
+            const expiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 7;
+            
+            return (
+              <div
+                key={dealId}
+                className={`group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border ${
+                  expired ? 'border-red-300 opacity-60' : 'border-gray-100'
+                }`}
               >
-                Reset Filters
-              </button>
-            </div>
+                <div className="relative h-56 overflow-hidden cursor-pointer" onClick={() => !expired && handleViewDetails(dealId)}>
+                  <img
+                    src={deal.image}
+                    alt={deal.title}
+                    className={`w-full h-full object-cover transition-transform duration-300 ${
+                      expired ? 'grayscale' : 'group-hover:scale-110'
+                    }`}
+                  />
+                  
+                  <div className="absolute top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg">
+                    {deal.discount}
+                  </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
-                💡 Showing {filteredDeals.length} of {allDeals.length} deals
-              </p>
-              {businessNameParam && (
-                <div className="mt-3 pt-3 border-t border-blue-200">
-                  <p className="text-xs text-blue-700 mb-2">
-                    Filtering by: <strong>{businessNameParam}</strong>
-                  </p>
-                  <button
-                    onClick={() => navigate('/deals')}
-                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-semibold"
+                  {!expired && expiringSoon && (
+                    <div className="absolute top-16 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg animate-pulse">
+                      {daysLeft === 1 ? 'Last day!' : `${daysLeft} days left`}
+                    </div>
+                  )}
+
+                  {!expired && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(deal);
+                      }}
+                      className="absolute top-4 left-4 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-200 z-10"
+                      aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      <svg
+                        className={`w-6 h-6 ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-400'}`}
+                        fill={isFavorite ? 'currentColor' : 'none'}
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
+                    </button>
+                  )}
+
+                  {expired && (
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                      <div className="bg-red-600 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-xl">
+                        Deal Ended
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-6">
+                  <h3 
+                    className={`text-xl font-bold mb-3 line-clamp-2 transition-colors cursor-pointer ${
+                      expired ? 'text-gray-500' : 'text-gray-900 group-hover:text-blue-600'
+                    }`}
+                    onClick={() => !expired && handleViewDetails(dealId)}
                   >
-                    ✕ Clear business filter
+                    {deal.title}
+                  </h3>
+
+                  <div className="flex items-center gap-2 mb-2 text-gray-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span className="text-sm font-medium">{deal.businessName}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 mb-4 text-gray-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="text-sm">{deal.location}</span>
+                  </div>
+
+                  {deal.validUntil && (
+                    <div className={`flex items-center gap-2 mb-4 text-sm ${
+                      expired ? 'text-red-600 font-semibold' : expiringSoon ? 'text-orange-600 font-semibold' : 'text-gray-500'
+                    }`}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>
+                        {expired ? 'Expired' : 'Valid until'}: {formatExpiryDate(deal.validUntil)}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-3">
+                      <span className={`text-3xl font-bold ${expired ? 'text-gray-400' : 'text-green-600'}`}>
+                        {formatPrice(deal.discountedPrice)}
+                      </span>
+                      <span className="text-lg text-gray-400 line-through">
+                        {formatPrice(deal.originalPrice)}
+                      </span>
+                    </div>
+                    <p className={`text-sm font-semibold mt-1 ${expired ? 'text-gray-400' : 'text-green-600'}`}>
+                      Save {formatPrice(deal.originalPrice - deal.discountedPrice)}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!expired) handleViewDetails(dealId);
+                    }}
+                    disabled={expired}
+                    className={`w-full font-semibold py-3 rounded-xl transition-all duration-300 shadow-md ${
+                      expired 
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                        : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white hover:shadow-lg'
+                    }`}
+                  >
+                    {expired ? 'Deal Ended' : 'View Details'}
                   </button>
                 </div>
-              )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Business-Specific Buttons */}
+        <div className="text-center mb-6">
+          {activeBusiness === 'all' && (
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={handleViewAllPizza}
+                className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                View All Pizza Paradise Deals
+              </button>
+              <button
+                onClick={handleViewAllSklep}
+                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                View All Sklep Charytatywny Deals
+              </button>
             </div>
-          </aside>
+          )}
 
-          {/* Deals Grid */}
-          <main className="flex-1">
-            <div className="mb-4 text-gray-600">
-              Found {filteredDeals.length} deals
-            </div>
+          {activeBusiness === 'Pizza Paradise' && (
+            <button
+              onClick={handleViewAllPizza}
+              className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              View All Pizza Paradise Deals
+            </button>
+          )}
 
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-lg shadow-md overflow-hidden animate-pulse">
-                    <div className="h-48 bg-gray-300"></div>
-                    <div className="p-4">
-                      <div className="h-4 bg-gray-300 rounded mb-2"></div>
-                      <div className="h-4 bg-gray-300 rounded w-2/3"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : filteredDeals.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-lg shadow-md">
-                <div className="text-6xl mb-4">🎁</div>
-                <h3 className="text-2xl font-bold text-gray-700 mb-2">
-                  No deals found
-                </h3>
-                <p className="text-gray-500 mb-6">
-                  {businessNameParam 
-                    ? `No deals available from ${businessNameParam}` 
-                    : 'Try adjusting your filters or search query'}
-                </p>
-                <button
-                  onClick={resetFilters}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-                >
-                  Reset Filters
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredDeals.map(deal => (
-                  <div
-                    key={deal.id || deal.deal_id}
-                    className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-xl"
-                    onClick={() => navigate(`/deals/${deal.id || deal.deal_id}`)}
-                  >
-                    {/* Deal Image */}
-                    <div className="relative h-56 bg-gray-200">
-                      <img
-                        src={deal.image || deal.image_url}
-                        alt={deal.title}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/400x250?text=Deal';
-                        }}
-                      />
-                      {/* Discount Badge */}
-                      <div className="absolute top-3 right-3 bg-red-500 text-white px-4 py-2 rounded-full font-bold text-lg shadow-lg">
-                        {deal.discount_percentage || deal.discount}
-                      </div>
-                      {/* Favorite Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          alert('Favorites feature coming soon!');
-                        }}
-                        className="absolute top-3 left-3 bg-white rounded-full p-2 shadow-lg hover:scale-110 transition-transform"
-                      >
-                        ❤️
-                      </button>
-                    </div>
+          {activeBusiness === 'Sklep Charytatywny' && (
+            <button
+              onClick={handleViewAllSklep}
+              className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              View All Sklep Charytatywny Deals
+            </button>
+          )}
+        </div>
 
-                    {/* Deal Content */}
-                    <div className="p-4">
-                      <h3 className="text-lg font-bold text-gray-800 mb-2 line-clamp-2">
-                        {deal.title}
-                      </h3>
-                      <div className="flex items-center gap-2 text-gray-600 mb-2">
-                        <span className="text-sm">🏢 {deal.businessName || deal.business_name}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-600 mb-3">
-                        <span className="text-sm">📍 {deal.location}</span>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/deals/${deal.id || deal.deal_id}`);
-                        }}
-                        className="w-full py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                      >
-                        View Details
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </main>
+        {/* List Your Business CTA */}
+        <div className="max-w-4xl mx-auto bg-gradient-to-r from-green-600 to-blue-600 rounded-2xl p-8 text-center text-white shadow-2xl">
+          <h3 className="text-3xl font-bold mb-4">
+            {isAuthenticated() && isBusinessAccount() ? 'Ready to Post Another Deal?' : 'Want to List Your Business?'}
+          </h3>
+          <p className="text-xl mb-6 text-green-100">
+            {isAuthenticated() && isBusinessAccount() 
+              ? 'Share more amazing offers with our community!'
+              : 'Join SaveMate and reach thousands of local customers'
+            }
+          </p>
+          <button
+            onClick={handleListYourBusiness}
+            className="bg-white text-green-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-green-50 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-3"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            <span>{isAuthenticated() && isBusinessAccount() ? 'Post New Deal' : 'List Your Business'}</span>
+          </button>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

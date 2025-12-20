@@ -1,7 +1,8 @@
-// src/components/DealDetailsPage.jsx
+// src/pages/DealDetailsPage.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import notificationService from '../services/notificationService';
 
 export default function DealDetailsPage() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function DealDetailsPage() {
 
   useEffect(() => {
     fetchDeal();
+    checkExpiration();
   }, [id]);
 
   const fetchDeal = async () => {
@@ -28,6 +30,22 @@ export default function DealDetailsPage() {
     }
   };
 
+  const checkExpiration = () => {
+    if (!deal || !deal.expiry_date) return;
+    
+    const daysLeft = getDaysRemaining(deal.expiry_date);
+    
+    // Check if already notified today
+    const lastNotified = localStorage.getItem(`expiry_notified_${id}`);
+    const today = new Date().toDateString();
+    
+    if (daysLeft > 0 && daysLeft <= 3 && lastNotified !== today) {
+      // Send expiration notification
+      notificationService.createExpiringDealNotification(deal.title, daysLeft);
+      localStorage.setItem(`expiry_notified_${id}`, today);
+    }
+  };
+
   const getMockDeal = () => ({
     _id: id,
     title: '50% Off All Pizzas - Weekend Special',
@@ -41,7 +59,7 @@ export default function DealDetailsPage() {
     original_price: 50,
     discounted_price: 25,
     image_url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800',
-    expiry_date: '2024-12-15',
+    expiry_date: '2025-12-31',
     category: 'food',
     terms: [
       'Valid only on weekends (Saturday & Sunday)',
@@ -61,8 +79,33 @@ export default function DealDetailsPage() {
   });
 
   const handleFavoriteToggle = () => {
-    setIsFavorite(!isFavorite);
-    // TODO: Call API to save/remove favorite
+    const newFavoriteState = !isFavorite;
+    setIsFavorite(newFavoriteState);
+    
+    // Save to favorites
+    if (newFavoriteState) {
+      const guestFavorites = JSON.parse(localStorage.getItem('guestFavorites') || '[]');
+      guestFavorites.push({
+        deal_id: id,
+        id: id,
+        title: deal.title,
+        validUntil: deal.expiry_date,
+        ...deal
+      });
+      localStorage.setItem('guestFavorites', JSON.stringify(guestFavorites));
+      
+      // Send notifications
+      notificationService.createDealSavedNotification(deal.title);
+      notificationService.createFavoriteNotification(deal.title, 'guest');
+      
+      window.dispatchEvent(new Event('favoritesChanged'));
+    } else {
+      // Remove from favorites
+      const guestFavorites = JSON.parse(localStorage.getItem('guestFavorites') || '[]');
+      const updated = guestFavorites.filter(f => (f.deal_id || f.id) !== id);
+      localStorage.setItem('guestFavorites', JSON.stringify(updated));
+      window.dispatchEvent(new Event('favoritesChanged'));
+    }
   };
 
   const handleGetDirections = () => {
@@ -78,6 +121,15 @@ export default function DealDetailsPage() {
     const diffTime = expiry - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+  };
+
+  const formatExpiryDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
   };
 
   if (loading) {
@@ -110,6 +162,7 @@ export default function DealDetailsPage() {
 
   const daysRemaining = getDaysRemaining(deal.expiry_date);
   const isExpired = daysRemaining <= 0;
+  const isExpiringSoon = daysRemaining > 0 && daysRemaining <= 7;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -176,14 +229,25 @@ export default function DealDetailsPage() {
                 <img
                   src={deal.image_url}
                   alt={deal.title}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full object-cover ${isExpired ? 'grayscale' : ''}`}
                 />
                 <div className="absolute top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-full font-bold text-2xl shadow-lg">
                   {deal.discount_percentage}% OFF
                 </div>
+                
+                {/* Expiring Soon Badge */}
+                {isExpiringSoon && !isExpired && (
+                  <div className="absolute top-20 right-4 bg-orange-500 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg animate-pulse">
+                    {daysRemaining === 1 ? 'Last Day!' : `${daysRemaining} Days Left`}
+                  </div>
+                )}
+
+                {/* ✅ FIXED: Replaced "EXPIRED" with "Deal Ended" */}
                 {isExpired && (
-                  <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
-                    <span className="text-white text-4xl font-bold">EXPIRED</span>
+                  <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+                    <div className="bg-red-600 text-white px-8 py-4 rounded-lg shadow-2xl">
+                      <span className="text-3xl font-bold">Deal Ended</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -193,54 +257,93 @@ export default function DealDetailsPage() {
             <div className="bg-white rounded-lg shadow-lg p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  <h1 className={`text-3xl font-bold mb-2 ${isExpired ? 'text-gray-500' : 'text-gray-900'}`}>
                     {deal.title}
                   </h1>
                   <p className="text-xl text-gray-600 flex items-center gap-2">
                     🏢 {deal.business_name}
                   </p>
                 </div>
-                <button
-                  onClick={handleFavoriteToggle}
-                  className="bg-white border-2 border-gray-300 rounded-full p-3 hover:border-red-500 transition-colors"
-                >
-                  <span className="text-2xl">{isFavorite ? '❤️' : '🤍'}</span>
-                </button>
+                {!isExpired && (
+                  <button
+                    onClick={handleFavoriteToggle}
+                    className="bg-white border-2 border-gray-300 rounded-full p-3 hover:border-red-500 transition-colors"
+                  >
+                    <span className="text-2xl">{isFavorite ? '❤️' : '🤍'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* ✅ NEW: Expiration Date Display */}
+              <div className={`flex items-center gap-2 mb-4 p-3 rounded-lg ${
+                isExpired ? 'bg-red-50 border border-red-200' : 
+                isExpiringSoon ? 'bg-orange-50 border border-orange-200' : 
+                'bg-blue-50 border border-blue-200'
+              }`}>
+                <span className="text-2xl">
+                  {isExpired ? '🔴' : isExpiringSoon ? '⏰' : '📅'}
+                </span>
+                <div className="flex-1">
+                  <p className={`text-sm font-semibold ${
+                    isExpired ? 'text-red-800' : 
+                    isExpiringSoon ? 'text-orange-800' : 
+                    'text-blue-800'
+                  }`}>
+                    {isExpired ? 'Deal Expired' : isExpiringSoon ? 'Expiring Soon!' : 'Valid Until'}
+                  </p>
+                  <p className={`text-lg font-bold ${
+                    isExpired ? 'text-red-900' : 
+                    isExpiringSoon ? 'text-orange-900' : 
+                    'text-blue-900'
+                  }`}>
+                    {formatExpiryDate(deal.expiry_date)}
+                    {!isExpired && daysRemaining <= 7 && (
+                      <span className="text-sm ml-2">
+                        ({daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left)
+                      </span>
+                    )}
+                  </p>
+                </div>
               </div>
 
               {/* Price Info */}
-              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+              <div className={`rounded-lg p-4 mb-6 ${
+                isExpired ? 'bg-gray-50' : 'bg-blue-50'
+              }`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 line-through">
+                    <p className={`text-sm line-through ${
+                      isExpired ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
                       Original: {deal.original_price} PLN
                     </p>
-                    <p className="text-3xl font-bold text-blue-600">
+                    <p className={`text-3xl font-bold ${
+                      isExpired ? 'text-gray-400' : 'text-blue-600'
+                    }`}>
                       {deal.discounted_price} PLN
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-600">You save</p>
-                    <p className="text-2xl font-bold text-green-600">
+                    <p className={`text-sm ${
+                      isExpired ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
+                      You save
+                    </p>
+                    <p className={`text-2xl font-bold ${
+                      isExpired ? 'text-gray-400' : 'text-green-600'
+                    }`}>
                       {deal.original_price - deal.discounted_price} PLN
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Expiry Warning */}
-              {!isExpired && daysRemaining <= 3 && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-                  <p className="text-orange-800 font-semibold flex items-center gap-2">
-                    ⚠️ Hurry! This deal expires in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}
-                  </p>
-                </div>
-              )}
-
               {/* Description */}
               <div className="mb-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-3">About This Deal</h2>
-                <p className="text-gray-700 leading-relaxed">{deal.description}</p>
+                <p className={`leading-relaxed ${isExpired ? 'text-gray-500' : 'text-gray-700'}`}>
+                  {deal.description}
+                </p>
               </div>
 
               {/* Terms & Conditions */}
@@ -248,12 +351,42 @@ export default function DealDetailsPage() {
                 <h2 className="text-xl font-bold text-gray-900 mb-3">Terms & Conditions</h2>
                 <ul className="space-y-2">
                   {deal.terms.map((term, index) => (
-                    <li key={index} className="flex items-start gap-2 text-gray-700">
-                      <span className="text-blue-600 mt-1">✓</span>
+                    <li key={index} className={`flex items-start gap-2 ${
+                      isExpired ? 'text-gray-500' : 'text-gray-700'
+                    }`}>
+                      <span className={isExpired ? 'text-gray-400' : 'text-blue-600'}>✓</span>
                       <span>{term}</span>
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 mt-6">
+                {!isExpired && (
+                  <>
+                    <button
+                      onClick={() => handleFavoriteToggle()}
+                      className="flex-1 bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors shadow-md"
+                    >
+                      {isFavorite ? '❤️ Saved' : '🤍 Save Deal'}
+                    </button>
+                    <button
+                      onClick={() => window.print()}
+                      className="flex-1 bg-green-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-green-700 transition-colors shadow-md"
+                    >
+                      🎫 Redeem Now
+                    </button>
+                  </>
+                )}
+                {isExpired && (
+                  <button
+                    disabled
+                    className="flex-1 bg-gray-300 text-gray-500 py-4 rounded-lg font-bold text-lg cursor-not-allowed"
+                  >
+                    Deal Ended
+                  </button>
+                )}
               </div>
             </div>
           </div>

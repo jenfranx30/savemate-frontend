@@ -1,29 +1,33 @@
-// src/components/HomePage.jsx - WITH MY FAVORITES
+// src/components/HomePage.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// import FeaturedDeals from './FeaturedDeals'; // Removed - showing empty state
+import { useAuth } from '../context/AuthContext';
 import ExternalDeals from './ExternalDeals';
+import BusinessDeals from './BusinessDeals';
+import NotificationBell from './NotificationBell';
 
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
+  const [greeting, setGreeting] = useState('');
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
 
   useEffect(() => {
+    checkAuthStatus();
+    setTimeBasedGreeting();
     fetchFavorites();
     
-    // Listen for localStorage changes (when favorites are added/removed)
     const handleStorageChange = (e) => {
-      if (e.key === 'guestFavorites' || !e.key) {
-        console.log('Favorites changed, refreshing...');
+      if (e.key === 'guestFavorites' || e.key === 'user' || !e.key) {
+        console.log('Storage changed, refreshing...');
+        checkAuthStatus();
         fetchFavorites();
       }
     };
     
-    // Listen for custom event (for same-window changes)
     const handleFavoritesChange = () => {
       console.log('Favorites updated via custom event');
       fetchFavorites();
@@ -36,17 +40,41 @@ export default function HomePage() {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('favoritesChanged', handleFavoritesChange);
     };
-  }, []);
+  }, [authUser]);
+
+  // Check authentication status
+  const checkAuthStatus = () => {
+    if (authUser) {
+      setUserInfo(authUser);
+    } else {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user.email) {
+        setUserInfo(user);
+      } else {
+        setUserInfo(null);
+      }
+    }
+  };
+
+  // Set time-based greeting
+  const setTimeBasedGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      setGreeting('Good Morning');
+    } else if (hour < 18) {
+      setGreeting('Good Afternoon');
+    } else {
+      setGreeting('Good Evening');
+    }
+  };
 
   const fetchFavorites = async () => {
     setLoadingFavorites(true);
     
     try {
-      // Check if user is logged in
       const token = localStorage.getItem('token');
       
       if (token) {
-        // Logged in: Fetch from API
         const response = await fetch('http://localhost:8000/api/v1/favorites/', {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -58,18 +86,15 @@ export default function HomePage() {
           const data = await response.json();
           setFavorites(data.slice(0, 6));
         } else {
-          // API error, fall back to localStorage
           const localFavorites = JSON.parse(localStorage.getItem('guestFavorites') || '[]');
           setFavorites(localFavorites.slice(0, 6));
         }
       } else {
-        // Not logged in: Use localStorage (guest favorites)
         const localFavorites = JSON.parse(localStorage.getItem('guestFavorites') || '[]');
         setFavorites(localFavorites.slice(0, 6));
       }
     } catch (error) {
       console.error('Error fetching favorites:', error);
-      // Fall back to localStorage on error
       const localFavorites = JSON.parse(localStorage.getItem('guestFavorites') || '[]');
       setFavorites(localFavorites.slice(0, 6));
     } finally {
@@ -81,7 +106,6 @@ export default function HomePage() {
     const token = localStorage.getItem('token');
     
     if (token) {
-      // Logged in: Remove from API
       try {
         const response = await fetch(`http://localhost:8000/api/v1/favorites/${dealId}`, {
           method: 'DELETE',
@@ -97,94 +121,504 @@ export default function HomePage() {
         console.error('Error removing favorite:', error);
       }
     } else {
-      // Not logged in: Remove from localStorage
       const localFavorites = JSON.parse(localStorage.getItem('guestFavorites') || '[]');
       const updated = localFavorites.filter(f => f.deal_id !== dealId);
       localStorage.setItem('guestFavorites', JSON.stringify(updated));
       setFavorites(updated.slice(0, 6));
+      
+      window.dispatchEvent(new Event('favoritesChanged'));
     }
   };
 
-  const isLoggedIn = () => {
-    return !!localStorage.getItem('token');
-  };
-
-  const handleSearch = async (e) => {
+  const handleSearch = (e) => {
     e.preventDefault();
     
     if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setIsSearching(false);
+      alert('Please enter a search term');
       return;
     }
 
-    setIsSearching(true);
-    
-    try {
-      // Fetch from both Slickdeals and Reddit
-      const [slickdealsRes, redditRes] = await Promise.all([
-        fetch('http://localhost:8000/api/v1/external/deals/slickdeals'),
-        fetch('http://localhost:8000/api/v1/external/deals/rapidapi')
-      ]);
-
-      const slickdealsData = slickdealsRes.ok ? await slickdealsRes.json() : { deals: [] };
-      const redditData = redditRes.ok ? await redditRes.json() : { deals: [] };
-
-      // Extract deals arrays
-      const extractDeals = (data) => {
-        if (Array.isArray(data)) return data;
-        if (data.deals && Array.isArray(data.deals)) return data.deals;
-        return [];
-      };
-
-      const allDeals = [
-        ...extractDeals(slickdealsData),
-        ...extractDeals(redditData)
-      ];
-
-      // Filter by search query
-      const query = searchQuery.toLowerCase();
-      const filtered = allDeals.filter(deal => 
-        deal.title?.toLowerCase().includes(query) ||
-        deal.description?.toLowerCase().includes(query)
-      );
-
-      console.log(`Search for "${searchQuery}": Found ${filtered.length} deals`);
-      setSearchResults(filtered);
-
-      // Scroll to search results
-      setTimeout(() => {
-        const resultsSection = document.getElementById('search-results');
-        if (resultsSection) {
-          resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 100);
-
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
-    }
+    console.log(`Navigating to search page with query: "${searchQuery}"`);
+    navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
   };
 
   const handleSignIn = () => {
     navigate('/login');
   };
 
+  const handleSignOut = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
+    setUserInfo(null);
+    window.location.reload();
+  };
+
+  const getSourceBadge = (source) => {
+    const badges = {
+      slickdeals: { bg: 'bg-blue-600', text: 'SLICKDEALS', icon: '🔥' },
+      reddit: { bg: 'bg-orange-600', text: 'REDDIT', icon: '🤖' },
+      business: { bg: 'bg-purple-600', text: 'BUSINESS', icon: '🏪' }
+    };
+    const sourceLower = source?.toLowerCase() || '';
+    return badges[sourceLower] || { bg: 'bg-gray-500', text: 'DEAL', icon: '🏷️' };
+  };
+
+  const formatPrice = (price) => {
+    if (!price) return null;
+    return `${Number(price).toFixed(2)} zł`;
+  };
+
+  // Check if user is authenticated
+  const isAuthenticated = userInfo && userInfo.email;
+  const isBusinessAccount = isAuthenticated && userInfo.accountType === 'business';
+  const firstName = userInfo?.firstName || userInfo?.name?.split(' ')[0] || 'User';
+
+  // ============================================================================
+  // AUTHENTICATED USER VIEW - ONLY SHOWN WHEN LOGGED IN
+  // ============================================================================
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Navigation Bar - Authenticated */}
+        <nav className="bg-white shadow-sm sticky top-0 z-50">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center">
+                <h1 
+                  className="text-2xl font-bold text-gray-900 cursor-pointer"
+                  onClick={() => navigate('/')}
+                >
+                  SaveMate
+                </h1>
+              </div>
+              
+              <div className="hidden md:flex items-center gap-6">
+                <button 
+                  onClick={() => navigate('/deals')}
+                  className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+                >
+                  Deals
+                </button>
+                <button 
+                  onClick={() => navigate('/favorites')}
+                  className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+                >
+                  Favorites
+                </button>
+                <button 
+                  onClick={() => navigate('/categories')}
+                  className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+                >
+                  Categories
+                </button>
+                {isBusinessAccount && (
+                  <button 
+                    onClick={() => navigate('/business/post-deal')}
+                    className="text-green-600 hover:text-green-700 font-semibold transition-colors"
+                  >
+                    Post Deal
+                  </button>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <NotificationBell />
+                <button 
+                  onClick={() => navigate('/dashboard')}
+                  className="text-gray-700 hover:text-blue-600 font-medium"
+                >
+                  Dashboard
+                </button>
+                <button 
+                  onClick={handleSignOut}
+                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        {/* Welcome Banner - Authenticated */}
+        <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-16">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-5xl">👋</span>
+                <h1 className="text-4xl md:text-5xl font-bold">
+                  {greeting}, {firstName}!
+                </h1>
+              </div>
+              
+              {isBusinessAccount ? (
+                <div className="space-y-3">
+                  <p className="text-2xl text-blue-100">
+                    Welcome to your Business Dashboard
+                  </p>
+                  <p className="text-lg text-blue-200">
+                    Manage your deals, track performance, and grow your business
+                  </p>
+                  <div className="flex gap-4 mt-6">
+                    <button
+                      onClick={() => navigate('/business/post-deal')}
+                      className="bg-white text-blue-600 px-8 py-3 rounded-lg font-bold hover:bg-blue-50 transition-colors shadow-lg"
+                    >
+                      + Post New Deal
+                    </button>
+                    <button
+                      onClick={() => navigate('/dashboard')}
+                      className="bg-blue-700 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-800 transition-colors"
+                    >
+                      View Analytics
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-2xl text-blue-100">
+                    Discover Amazing Local Deals
+                  </p>
+                  <p className="text-lg text-blue-200">
+                    Save money while supporting your favorite local businesses
+                  </p>
+                  <div className="flex gap-4 mt-6">
+                    <button
+                      onClick={() => navigate('/deals')}
+                      className="bg-white text-blue-600 px-8 py-3 rounded-lg font-bold hover:bg-blue-50 transition-colors shadow-lg"
+                    >
+                      Browse All Deals
+                    </button>
+                    <button
+                      onClick={() => navigate('/favorites')}
+                      className="bg-blue-700 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-800 transition-colors"
+                    >
+                      My Favorites
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Quick Stats for Business Users */}
+        {isBusinessAccount && (
+          <section className="py-12 bg-white">
+            <div className="container mx-auto px-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-3xl">📊</span>
+                    <span className="text-4xl font-bold">12</span>
+                  </div>
+                  <p className="text-blue-100">Active Deals</p>
+                </div>
+                <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-3xl">👥</span>
+                    <span className="text-4xl font-bold">458</span>
+                  </div>
+                  <p className="text-green-100">Total Views</p>
+                </div>
+                <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-3xl">⭐</span>
+                    <span className="text-4xl font-bold">89</span>
+                  </div>
+                  <p className="text-purple-100">Favorites</p>
+                </div>
+                <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-3xl">🎯</span>
+                    <span className="text-4xl font-bold">34</span>
+                  </div>
+                  <p className="text-orange-100">Redeemed</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Rest of authenticated content - same sections as guest */}
+        <section className="py-20 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                ⭐ My Favorites
+              </h2>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                Your saved deals in one place
+              </p>
+            </div>
+
+            {loadingFavorites ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Loading your favorites...</p>
+              </div>
+            ) : favorites.length === 0 ? (
+              <div className="text-center py-12 bg-gray-100 rounded-xl">
+                <div className="text-6xl mb-4">💝</div>
+                <h3 className="text-2xl font-bold text-gray-700 mb-2">
+                  No favorites yet
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Start saving deals to see them here
+                </p>
+                <button
+                  onClick={() => navigate('/deals')}
+                  className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Browse Deals
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+                  {favorites.map((favorite) => {
+                    const isBusinessDeal = favorite.source === 'business';
+                    const badge = getSourceBadge(favorite.source);
+
+                    return (
+                      <div
+                        key={favorite.deal_id || favorite.id}
+                        className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 cursor-pointer relative"
+                        onClick={() => navigate(favorite.url || favorite.deal_url || '/deals')}
+                      >
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFavorite(favorite.deal_id || favorite.id);
+                          }}
+                          className="absolute top-4 right-4 z-10 w-10 h-10 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg transition-all duration-200"
+                          title="Remove from favorites"
+                        >
+                          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                        </button>
+
+                        <div className="relative h-56 overflow-hidden">
+                          <img
+                            src={favorite.image_url || favorite.image}
+                            alt={favorite.title}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/400x300?text=Deal';
+                            }}
+                          />
+                          
+                          <div className={`absolute top-4 left-4 ${badge.bg} text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1`}>
+                            <span>{badge.icon}</span>
+                            <span>{badge.text}</span>
+                          </div>
+                        </div>
+
+                        <div className="p-6">
+                          <h3 className="text-xl font-bold mb-3 line-clamp-2 text-gray-900 group-hover:text-blue-600 transition-colors">
+                            {favorite.title}
+                          </h3>
+
+                          {isBusinessDeal && (
+                            <div className="flex items-center gap-2 mb-3 text-gray-600">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                              <span className="text-sm font-medium">{favorite.businessName}</span>
+                            </div>
+                          )}
+
+                          {isBusinessDeal && favorite.discountedPrice ? (
+                            <div className="mb-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-2xl font-bold text-green-600">
+                                  {formatPrice(favorite.discountedPrice)}
+                                </span>
+                                {favorite.originalPrice && favorite.originalPrice > favorite.discountedPrice && (
+                                  <span className="text-sm text-gray-400 line-through">
+                                    {formatPrice(favorite.originalPrice)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-green-600 font-semibold">
+                                Save {formatPrice(favorite.originalPrice - favorite.discountedPrice)}
+                              </p>
+                            </div>
+                          ) : favorite.price && (
+                            <div className="mb-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-2xl font-bold text-green-600">
+                                  ${typeof favorite.price === 'number' ? favorite.price.toFixed(2) : favorite.price}
+                                </span>
+                              </div>
+                              {favorite.discount && (
+                                <div className="inline-block bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-bold">
+                                  {favorite.discount}% OFF
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {isBusinessDeal && favorite.location && (
+                            <div className="flex items-center gap-2 mb-4 text-gray-600">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span className="text-sm">{favorite.location}</span>
+                            </div>
+                          )}
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(favorite.url || favorite.deal_url || '/deals');
+                            }}
+                            className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                          >
+                            View Deal →
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="text-center mt-8">
+                  <button
+                    onClick={() => navigate('/favorites')}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 inline-flex items-center gap-2"
+                  >
+                    View All Favorites
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* External Deals Section */}
+        <ExternalDeals />
+
+        {/* Business Deals Section */}
+        <BusinessDeals />
+
+        {/* Footer */}
+        <footer className="bg-gray-900 text-white py-12">
+          <div className="container mx-auto px-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div>
+                <h3 className="text-lg font-bold mb-4">SaveMate</h3>
+                <p className="text-gray-400">
+                  Your trusted platform for discovering local deals and saving money.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-4">Quick Links</h3>
+                <ul className="space-y-2">
+                  <li>
+                    <button onClick={() => navigate('/deals')} className="text-gray-400 hover:text-white transition-colors">
+                      Browse Deals
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => navigate('/favorites')} className="text-gray-400 hover:text-white transition-colors">
+                      My Favorites
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => navigate('/categories')} className="text-gray-400 hover:text-white transition-colors">
+                      Categories
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => navigate('/top-10-stores')} className="text-gray-400 hover:text-white transition-colors">
+                      🏆 Top 10 Online Stores in Poland
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-4">For Business</h3>
+                <ul className="space-y-2">
+                  {isBusinessAccount ? (
+                    <>
+                      <li>
+                        <button onClick={() => navigate('/business/post-deal')} className="text-gray-400 hover:text-white transition-colors">
+                          Post Deal
+                        </button>
+                      </li>
+                      <li>
+                        <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-white transition-colors">
+                          Dashboard
+                        </button>
+                      </li>
+                    </>
+                  ) : (
+                    <li>
+                      <button onClick={() => navigate('/register?type=business')} className="text-gray-400 hover:text-white transition-colors">
+                        Become a Partner
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-4">Account</h3>
+                <ul className="space-y-2">
+                  <li>
+                    <button onClick={() => navigate('/profile')} className="text-gray-400 hover:text-white transition-colors">
+                      Profile
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-white transition-colors">
+                      Dashboard
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={handleSignOut} className="text-gray-400 hover:text-white transition-colors">
+                      Sign Out
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+              <p>&copy; 2025 SaveMate. All rights reserved.</p>
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // GUEST HOMEPAGE - EXACTLY AS YOUR ORIGINAL FILE
+  // ============================================================================
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation Bar */}
       <nav className="bg-white shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
             <div className="flex items-center">
               <h1 className="text-2xl font-bold text-gray-900">
                 SaveMate
               </h1>
             </div>
-
-            {/* Sign In Button */}
-            <div>
+            
+            <div className="flex items-center gap-4">
+              <NotificationBell />
               <button 
                 onClick={handleSignIn}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
@@ -233,150 +667,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SEARCH RESULTS SECTION */}
-      {isSearching && searchResults.length > 0 && (
-        <section id="search-results" className="py-20 bg-white">
-          <div className="container mx-auto px-4">
-            {/* Header */}
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">
-                🔍 Search Results
-              </h2>
-              <p className="text-lg text-gray-600">
-                Found {searchResults.length} deals matching "{searchQuery}"
-              </p>
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSearchResults([]);
-                  setIsSearching(false);
-                }}
-                className="mt-4 text-blue-600 hover:text-blue-700 font-semibold"
-              >
-                ✕ Clear Search
-              </button>
-            </div>
-
-            {/* Search Results Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-              {searchResults.map((deal, index) => {
-                const getSourceBadge = (source) => {
-                  const badges = {
-                    slickdeals: { bg: 'bg-blue-600', text: 'SLICKDEALS', icon: '🔥' },
-                    reddit: { bg: 'bg-orange-600', text: 'REDDIT', icon: '🤖' }
-                  };
-                  const sourceLower = source?.toLowerCase() || '';
-                  return badges[sourceLower] || { bg: 'bg-gray-500', text: 'DEAL', icon: '🏷️' };
-                };
-
-                const badge = getSourceBadge(deal.source);
-
-                return (
-                  <div
-                    key={index}
-                    className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-200 overflow-hidden"
-                  >
-                    {/* Deal Image */}
-                    <div className="relative h-48 bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
-                      <span className="text-7xl">{badge.icon}</span>
-                    </div>
-
-                    {/* Deal Info */}
-                    <div className="p-6">
-                      {/* Source Badge */}
-                      <div className={`${badge.bg} text-white px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 mb-3`}>
-                        <span>{badge.icon}</span>
-                        <span>{badge.text}</span>
-                      </div>
-
-                      {/* Title */}
-                      <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 min-h-[56px]">
-                        {deal.title}
-                      </h3>
-
-                      {/* Price & Discount */}
-                      <div className="mb-4">
-                        {deal.discounted_price && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-2xl font-bold text-green-600">
-                              ${typeof deal.discounted_price === 'number' ? deal.discounted_price.toFixed(2) : deal.discounted_price}
-                            </span>
-                            {deal.original_price && deal.original_price > deal.discounted_price && (
-                              <span className="text-sm text-gray-400 line-through">
-                                ${typeof deal.original_price === 'number' ? deal.original_price.toFixed(2) : deal.original_price}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {deal.discount_percentage && (
-                          <div className="inline-block bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-bold">
-                            {deal.discount_percentage}% OFF
-                          </div>
-                        )}
-                      </div>
-
-                      {/* View Deal Button */}
-                      <a
-                        href={deal.deal_url || deal.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                      >
-                        View Deal →
-                      </a>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Continue Browsing Button */}
-            <div className="text-center">
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSearchResults([]);
-                  setIsSearching(false);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
-              >
-                Browse All Deals
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* No Results */}
-      {isSearching && searchResults.length === 0 && (
-        <section className="py-20 bg-white">
-          <div className="container mx-auto px-4 text-center">
-            <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
-              No deals found for "{searchQuery}"
-            </h3>
-            <p className="text-gray-600 mb-8">
-              Try different keywords or browse all deals below
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSearchResults([]);
-                setIsSearching(false);
-              }}
-              className="bg-blue-600 text-white px-8 py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Clear Search
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* MY FAVORITES SECTION - REPLACES CATEGORIES */}
+      {/* MY FAVORITES SECTION */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
-          {/* Header */}
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
               ⭐ My Favorites
@@ -386,93 +679,100 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Loading State */}
-          {loadingFavorites && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="bg-white rounded-2xl shadow-md p-6 animate-pulse">
-                  <div className="w-full h-48 bg-gray-200 rounded-xl mb-4"></div>
-                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                </div>
-              ))}
+          {loadingFavorites ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading your favorites...</p>
             </div>
-          )}
-
-          {/* No Favorites State - Show for everyone */}
-          {!loadingFavorites && favorites.length === 0 && (
-            <div className="max-w-md mx-auto text-center">
-              <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl shadow-lg p-12">
-                <div className="text-6xl mb-6">❤️</div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                  No Favorites Yet
-                </h3>
-                <p className="text-gray-600 mb-8">
-                  Start exploring deals below and save your favorites by clicking the heart icon
-                </p>
-                <button
-                  onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
-                >
-                  Explore Deals Below
-                </button>
-              </div>
+          ) : favorites.length === 0 ? (
+            <div className="text-center py-12 bg-gray-100 rounded-xl">
+              <div className="text-6xl mb-4">💝</div>
+              <h3 className="text-2xl font-bold text-gray-700 mb-2">
+                No favorites yet
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Start saving deals to see them here
+              </p>
+              <button
+                onClick={() => navigate('/deals')}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Browse Deals
+              </button>
             </div>
-          )}
-
-          {/* Favorites Grid - Show for everyone (logged in or not) */}
-          {!loadingFavorites && favorites.length > 0 && (
+          ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
                 {favorites.map((favorite) => {
-                  // Get source badge
-                  const getSourceBadge = (source) => {
-                    const badges = {
-                      slickdeals: { bg: 'bg-blue-600', text: 'SLICKDEALS', icon: '🔥' },
-                      reddit: { bg: 'bg-orange-600', text: 'REDDIT', icon: '🤖' }
-                    };
-                    const sourceLower = source?.toLowerCase() || '';
-                    return badges[sourceLower] || { bg: 'bg-purple-600', text: 'DEAL', icon: '❤️' };
-                  };
-                  
+                  const isBusinessDeal = favorite.source === 'business';
                   const badge = getSourceBadge(favorite.source);
-                  
+
                   return (
                     <div
-                      key={favorite.id || favorite.deal_id}
-                      className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-200 overflow-hidden group"
+                      key={favorite.deal_id || favorite.id}
+                      className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 cursor-pointer relative"
+                      onClick={() => navigate(favorite.url || favorite.deal_url || '/deals')}
                     >
-                      {/* Deal Image */}
-                      <div className={`relative h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center`}>
-                        <span className="text-7xl">{badge.icon}</span>
-                        
-                        {/* Remove Button */}
-                        <button
-                          onClick={() => removeFavorite(favorite.deal_id)}
-                          className="absolute top-3 right-3 bg-white rounded-full p-2 shadow-lg hover:bg-red-50 transition-colors"
-                          title="Remove from favorites"
-                        >
-                          <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFavorite(favorite.deal_id || favorite.id);
+                        }}
+                        className="absolute top-4 right-4 z-10 w-10 h-10 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg transition-all duration-200"
+                        title="Remove from favorites"
+                      >
+                        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      </button>
 
-                      {/* Deal Info */}
-                      <div className="p-6">
-                        {/* Source Badge */}
-                        <div className={`${badge.bg} text-white px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 mb-3`}>
+                      <div className="relative h-56 overflow-hidden">
+                        <img
+                          src={favorite.image_url || favorite.image}
+                          alt={favorite.title}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                          onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/400x300?text=Deal';
+                          }}
+                        />
+                        
+                        <div className={`absolute top-4 left-4 ${badge.bg} text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1`}>
                           <span>{badge.icon}</span>
                           <span>{badge.text}</span>
                         </div>
+                      </div>
 
-                        {/* Title */}
-                        <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 min-h-[56px]">
-                          {favorite.title || 'Saved Deal'}
+                      <div className="p-6">
+                        <h3 className="text-xl font-bold mb-3 line-clamp-2 text-gray-900 group-hover:text-blue-600 transition-colors">
+                          {favorite.title}
                         </h3>
 
-                        {/* Price & Discount */}
-                        {favorite.price && (
+                        {isBusinessDeal && (
+                          <div className="flex items-center gap-2 mb-3 text-gray-600">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                            <span className="text-sm font-medium">{favorite.businessName}</span>
+                          </div>
+                        )}
+
+                        {isBusinessDeal && favorite.discountedPrice ? (
+                          <div className="mb-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-2xl font-bold text-green-600">
+                                {formatPrice(favorite.discountedPrice)}
+                              </span>
+                              {favorite.originalPrice && favorite.originalPrice > favorite.discountedPrice && (
+                                <span className="text-sm text-gray-400 line-through">
+                                  {formatPrice(favorite.originalPrice)}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-green-600 font-semibold">
+                              Save {formatPrice(favorite.originalPrice - favorite.discountedPrice)}
+                            </p>
+                          </div>
+                        ) : favorite.price && (
                           <div className="mb-4">
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-2xl font-bold text-green-600">
@@ -486,33 +786,33 @@ export default function HomePage() {
                             )}
                           </div>
                         )}
-                        
-                        {/* View Deal Button */}
-                        {favorite.url ? (
-                          <a
-                            href={favorite.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                          >
-                            View Deal →
-                          </a>
-                        ) : (
-                          <button
-                            onClick={() => navigate('/deals')}
-                            className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                          >
-                            View Deal →
-                          </button>
+
+                        {isBusinessDeal && favorite.location && (
+                          <div className="flex items-center gap-2 mb-4 text-gray-600">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span className="text-sm">{favorite.location}</span>
+                          </div>
                         )}
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(favorite.url || favorite.deal_url || '/deals');
+                          }}
+                          className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                        >
+                          View Deal →
+                        </button>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* View All Favorites Button */}
-              <div className="text-center">
+              <div className="text-center mt-8">
                 <button
                   onClick={() => navigate('/favorites')}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 inline-flex items-center gap-2"
@@ -528,11 +828,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Featured Deals Section - REMOVED (showing empty state) */}
-      {/* <FeaturedDeals /> */}
-
       {/* External Deals Section */}
       <ExternalDeals />
+
+      {/* Business Deals Section */}
+      <BusinessDeals />
 
       {/* Call to Action Section */}
       <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-16">
@@ -566,7 +866,6 @@ export default function HomePage() {
       <footer className="bg-gray-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            {/* About */}
             <div>
               <h3 className="text-lg font-bold mb-4">SaveMate</h3>
               <p className="text-gray-400">
@@ -574,7 +873,6 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* Quick Links */}
             <div>
               <h3 className="text-lg font-bold mb-4">Quick Links</h3>
               <ul className="space-y-2">
@@ -602,10 +900,17 @@ export default function HomePage() {
                     Contact
                   </button>
                 </li>
+                <li>
+                  <button 
+                    onClick={() => navigate('/top-10-stores')} 
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    🏆 Top 10 Online Stores in Poland
+                  </button>
+                </li>
               </ul>
             </div>
 
-            {/* For Business */}
             <div>
               <h3 className="text-lg font-bold mb-4">For Business</h3>
               <ul className="space-y-2">
@@ -636,7 +941,6 @@ export default function HomePage() {
               </ul>
             </div>
 
-            {/* Social */}
             <div>
               <h3 className="text-lg font-bold mb-4">Follow Us</h3>
               <div className="flex gap-4">
