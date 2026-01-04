@@ -1,25 +1,35 @@
 // src/config/api.js
-// Smart API configuration that works for both desktop and mobile
+// Smart API configuration that works for development, mobile, and production
 
 /**
- * Automatically determines the correct API URL based on current hostname
- * - Desktop (localhost): http://localhost:8000
- * - Mobile (network IP): http://192.168.8.125:8000
+ * Automatically determines the correct API URL
+ * Priority:
+ * 1. Environment variable (production/Vercel)
+ * 2. Network detection (mobile testing)
+ * 3. Localhost (development)
  */
 function getApiBaseUrl() {
+  // 1. Check for environment variable (PRODUCTION)
+  if (import.meta.env.VITE_API_URL) {
+    console.log('🚀 Mode: Production');
+    console.log('🌐 API:', import.meta.env.VITE_API_URL);
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // 2. Fallback to hostname detection (DEVELOPMENT/MOBILE)
   const hostname = window.location.hostname;
   
-  // Check if we're on localhost (desktop)
+  // Check if we're on localhost (desktop development)
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    console.log('Mode: Desktop');
-    console.log('API: http://localhost:8000');
+    console.log('💻 Mode: Desktop Development');
+    console.log('🌐 API: http://localhost:8000');
     return 'http://localhost:8000';
   }
   
-  // We're on network IP (mobile)
+  // We're on network IP (mobile testing)
   const apiUrl = `http://${hostname}:8000`;
-  console.log('Mode: Mobile');
-  console.log('API:', apiUrl);
+  console.log('📱 Mode: Mobile Testing');
+  console.log('🌐 API:', apiUrl);
   return apiUrl;
 }
 
@@ -69,10 +79,10 @@ export const ENDPOINTS = {
 };
 
 // Log configuration on startup
-const currentHostname = window.location.hostname;
-console.log('=== API Configuration loaded ===');
-console.log('Base URL:', API_BASE_URL);
-console.log('Environment:', currentHostname === 'localhost' || currentHostname === '127.0.0.1' ? 'Development' : 'Mobile');
+console.log('=== 🎯 API Configuration Loaded ===');
+console.log('📍 Base URL:', API_BASE_URL);
+console.log('🔧 Full API URL:', API_URL);
+console.log('===============================');
 
 export default {
   API_BASE_URL,
